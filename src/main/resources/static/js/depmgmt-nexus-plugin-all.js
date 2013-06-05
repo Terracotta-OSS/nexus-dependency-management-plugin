@@ -19,8 +19,8 @@ Sonatype.repoServer.DependencyManagementPanel = function (config) {
             readOnly : true
         },{
             xtype : 'displayfield',
-            fieldLabel : 'SVN version',
-            name : 'svnVersion',
+            fieldLabel : 'SVN Revision',
+            name : 'svnRevision',
             anchor : Sonatype.view.FIELD_OFFSET_WITH_SCROLL,
             allowBlank : true,
             readOnly : true
@@ -28,6 +28,12 @@ Sonatype.repoServer.DependencyManagementPanel = function (config) {
             xtype : 'displayfield',
             fieldLabel : 'Build Profiles',
             name : 'buildProfiles',
+            anchor : Sonatype.view.FIELD_OFFSET_WITH_SCROLL,
+            allowBlank : true,
+            readOnly : true
+        },{
+            xtype : 'label',
+            name : 'error',
             anchor : Sonatype.view.FIELD_OFFSET_WITH_SCROLL,
             allowBlank : true,
             readOnly : true
@@ -43,8 +49,9 @@ Ext.extend(Sonatype.repoServer.DependencyManagementPanel, Ext.form.FormPanel, {
         this.data = data;
         if (data == null) {
             this.find('name', 'buildProfiles')[0].setRawValue(null);
-            this.find('name', 'svnVersion')[0].setRawValue(null);
+            this.find('name', 'svnRevision')[0].setRawValue(null);
             this.find('name', 'buildUrl')[0].setRawValue(null);
+            that.find('name', 'error')[0].setText(null);
         } else {
             var resourceURI = this.data.resourceURI;
 
@@ -54,10 +61,14 @@ Ext.extend(Sonatype.repoServer.DependencyManagementPanel, Ext.form.FormPanel, {
                     if (isSuccess) {
                         var resp = Ext.decode(response.responseText);
 
-                        that.find('name', 'buildProfiles')[0].setRawValue(resp.buildProfiles);
-                        that.find('name', 'svnVersion')[0].setRawValue(resp.svnVersion);
-                        that.find('name', 'buildUrl')[0].setRawValue('<a href="' + resp.buildUrl + '" target="_blank">' + resp.buildUrl + '</a>');
-
+                        if (resp.error != null) {
+                            that.find('name', 'error')[0].setText(resp.error);
+                        } else {
+                            if (resp.buildProfiles != null) that.find('name', 'buildProfiles')[0].setRawValue(resp.buildProfiles);
+                            if (resp.svnRevision != null) that.find('name', 'svnRevision')[0].setRawValue(resp.svnRevision);
+                            if (resp.buildUrl != null) that.find('name', 'buildUrl')[0].setRawValue('<a href="' + resp.buildUrl + '" target="_blank">' + resp.buildUrl + '</a>');
+                            that.find('name', 'error')[0].setText(null);
+                        }
                     } else {
                         if (response.status = 404) {
                             artifactContainer.hideTab(this);

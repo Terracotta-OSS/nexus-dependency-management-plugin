@@ -5,13 +5,26 @@ package org.terracotta.nexus.plugins.depmgmt.model;
  */
 public class ArtifactInformation {
 
-  private String repositoryName;
+  private String error;
 
+  private String repositoryName;
   private String buildUrl;
-  private String svnVersion;
+  private String svnRevision;
   private String buildProfiles;
 
   public ArtifactInformation() {
+  }
+
+  public ArtifactInformation(String error) {
+    this.error = error;
+  }
+
+  public String getError() {
+    return error;
+  }
+
+  public void setError(String error) {
+    this.error = error;
   }
 
   public String getRepositoryName() {
@@ -30,12 +43,12 @@ public class ArtifactInformation {
     this.buildUrl = buildUrl;
   }
 
-  public String getSvnVersion() {
-    return svnVersion;
+  public String getSvnRevision() {
+    return svnRevision;
   }
 
-  public void setSvnVersion(String svnVersion) {
-    this.svnVersion = svnVersion;
+  public void setSvnRevision(String svnRevision) {
+    this.svnRevision = svnRevision;
   }
 
   public String getBuildProfiles() {

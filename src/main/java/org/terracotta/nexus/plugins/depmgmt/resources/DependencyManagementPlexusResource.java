@@ -49,13 +49,13 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
       ArtifactInformation artifactInformation = new ArtifactInformation();
 
       artifactInformation.setRepositoryName(itemUid.getRepository().getName());
-      artifactInformation.setSvnVersion(properties.getProperty("metadata.svn.revision"));
+      artifactInformation.setSvnRevision(properties.getProperty("metadata.svn.revision"));
       artifactInformation.setBuildUrl(properties.getProperty("metadata.build.jenkins.url"));
       artifactInformation.setBuildProfiles(properties.getProperty("metadata.build.maven.active.profiles"));
 
       return artifactInformation;
     } catch (Exception e) {
-      throw new RuntimeException(e);
+      return new ArtifactInformation(e.getMessage());
     }
   }
 
