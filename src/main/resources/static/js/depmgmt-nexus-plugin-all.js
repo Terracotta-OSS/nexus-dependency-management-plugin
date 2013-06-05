@@ -37,6 +37,14 @@ Sonatype.repoServer.DependencyManagementPanel = function (config) {
             anchor : Sonatype.view.FIELD_OFFSET_WITH_SCROLL,
             allowBlank : true,
             readOnly : true
+        },{
+            xtype : 'treepanel',
+            name : 'treePanel',
+            collapsible: true,
+            title: 'Dependencies',
+            loader: new Ext.tree.TreeLoader(),
+            root: new Ext.tree.TreeNode(),
+            rootVisible: true
         }]
     });
 
@@ -48,10 +56,11 @@ Ext.extend(Sonatype.repoServer.DependencyManagementPanel, Ext.form.FormPanel, {
         var that =  this;
         this.data = data;
         if (data == null) {
+            this.find('name', 'error')[0].setText(null);
             this.find('name', 'buildProfiles')[0].setRawValue(null);
             this.find('name', 'svnRevision')[0].setRawValue(null);
             this.find('name', 'buildUrl')[0].setRawValue(null);
-            that.find('name', 'error')[0].setText(null);
+            this.find('name', 'treePanel')[0].getRootNode().removeAll(true);
         } else {
             var resourceURI = this.data.resourceURI;
 
@@ -67,6 +76,15 @@ Ext.extend(Sonatype.repoServer.DependencyManagementPanel, Ext.form.FormPanel, {
                             if (resp.buildProfiles != null) that.find('name', 'buildProfiles')[0].setRawValue(resp.buildProfiles);
                             if (resp.svnRevision != null) that.find('name', 'svnRevision')[0].setRawValue(resp.svnRevision);
                             if (resp.buildUrl != null) that.find('name', 'buildUrl')[0].setRawValue('<a href="' + resp.buildUrl + '" target="_blank">' + resp.buildUrl + '</a>');
+
+                            if (resp.artifact != null) {
+                                var rootNode = that.find('name', 'treePanel')[0].getRootNode();
+                                rootNode.setText(resp.artifact.groupId + ':' + resp.artifact.artifactId + ':' + resp.artifact.version);
+                                appendChildren(rootNode, resp.artifact.dependencies);
+                            } else {
+                                that.find('name', 'treePanel')[0].getRootNode().removeAll(true);
+                            }
+
                             that.find('name', 'error')[0].setText(null);
                         }
                     } else {
@@ -87,7 +105,17 @@ Ext.extend(Sonatype.repoServer.DependencyManagementPanel, Ext.form.FormPanel, {
 
 });
 
+function appendChildren(treeNode, dependencies) {
+    for (var i = 0; i<dependencies.length ; i++) {
+        var dependency = dependencies[i];
 
+        var subNode = new Ext.tree.TreeNode();
+        subNode.setText(dependency.groupId + ':' + dependency.artifactId + ':' + dependency.version);
+        treeNode.appendChild(subNode);
+
+        appendChildren(subNode, dependency.dependencies);
+    }
+}
 
 Sonatype.Events.addListener("fileContainerInit", function (items) {
     items.push(new Sonatype.repoServer.DependencyManagementPanel({name: "DependencyManagementPanel", tabTitle: "Dependency Management", preferredIndex: 50}))

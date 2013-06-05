@@ -11,6 +11,7 @@ public class ArtifactInformation {
   private String buildUrl;
   private String svnRevision;
   private String buildProfiles;
+  private Dependency artifact;
 
   public ArtifactInformation() {
   }
@@ -57,5 +58,13 @@ public class ArtifactInformation {
 
   public void setBuildProfiles(String buildProfiles) {
     this.buildProfiles = buildProfiles;
+  }
+
+  public Dependency getArtifact() {
+    return artifact;
+  }
+
+  public void setArtifact(Dependency artifact) {
+    this.artifact = artifact;
   }
 }
