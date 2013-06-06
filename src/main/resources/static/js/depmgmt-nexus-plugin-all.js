@@ -43,7 +43,7 @@ Sonatype.repoServer.DependencyManagementPanel = function (config) {
             collapsible: true,
             title: 'Dependencies',
             loader: new Ext.tree.TreeLoader(),
-            root: new Ext.tree.TreeNode(),
+            root: new Ext.tree.TreeNode({expanded: true}),
             rootVisible: true
         }]
     });
@@ -118,7 +118,7 @@ function appendChildren(treeNode, dependencies) {
     for (var i = 0; i<dependencies.length ; i++) {
         var dependency = dependencies[i];
 
-        var subNode = new Ext.tree.TreeNode();
+        var subNode = new Ext.tree.TreeNode({expanded: true});
         fillTreeNode(subNode, dependency);
         treeNode.appendChild(subNode);
 
