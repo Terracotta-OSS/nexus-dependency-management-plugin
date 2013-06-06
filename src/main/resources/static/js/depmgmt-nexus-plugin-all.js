@@ -79,7 +79,7 @@ Ext.extend(Sonatype.repoServer.DependencyManagementPanel, Ext.form.FormPanel, {
 
                             if (resp.artifact != null) {
                                 var rootNode = that.find('name', 'treePanel')[0].getRootNode();
-                                rootNode.setText(resp.artifact.groupId + ':' + resp.artifact.artifactId + ':' + resp.artifact.version);
+                                fillTreeNode(rootNode, resp.artifact);
                                 appendChildren(rootNode, resp.artifact.dependencies);
                             } else {
                                 that.find('name', 'treePanel')[0].getRootNode().removeAll(true);
@@ -105,12 +105,21 @@ Ext.extend(Sonatype.repoServer.DependencyManagementPanel, Ext.form.FormPanel, {
 
 });
 
+function fillTreeNode(treeNode, artifact) {
+    treeNode.setText(artifact.groupId + ':' + artifact.artifactId + ':' + artifact.version);
+    if (artifact.groupId.contains('terracotta')) {
+        treeNode.setIcon("icons/depmgmt-nexus-plugin/terracotta-jar.png");
+    } else {
+        treeNode.setIcon("icons/depmgmt-nexus-plugin/jar-jar.png");
+    }
+}
+
 function appendChildren(treeNode, dependencies) {
     for (var i = 0; i<dependencies.length ; i++) {
         var dependency = dependencies[i];
 
         var subNode = new Ext.tree.TreeNode();
-        subNode.setText(dependency.groupId + ':' + dependency.artifactId + ':' + dependency.version);
+        fillTreeNode(subNode, dependency);
         treeNode.appendChild(subNode);
 
         appendChildren(subNode, dependency.dependencies);
