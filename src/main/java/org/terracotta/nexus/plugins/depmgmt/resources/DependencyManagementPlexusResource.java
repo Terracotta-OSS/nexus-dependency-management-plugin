@@ -3,8 +3,17 @@ package org.terracotta.nexus.plugins.depmgmt.resources;
 import org.codehaus.plexus.component.annotations.Component;
 import org.codehaus.plexus.component.annotations.Requirement;
 import org.restlet.data.Request;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.sonatype.aether.artifact.Artifact;
 import org.sonatype.aether.graph.DependencyNode;
+import org.sonatype.aether.repository.RemoteRepository;
+import org.sonatype.aether.resolution.VersionRangeRequest;
+import org.sonatype.aether.resolution.VersionRangeResolutionException;
+import org.sonatype.aether.resolution.VersionRangeResult;
+import org.sonatype.aether.util.artifact.DefaultArtifact;
+import org.sonatype.aether.version.Version;
+import org.sonatype.nexus.plugins.mavenbridge.NexusAether;
 import org.sonatype.nexus.plugins.mavenbridge.NexusMavenBridge;
 import org.sonatype.nexus.plugins.mavenbridge.Utils;
 import org.sonatype.nexus.plugins.mavenbridge.internal.FileItemModelSource;
@@ -14,8 +23,10 @@ import org.sonatype.nexus.proxy.item.StorageFileItem;
 import org.sonatype.nexus.proxy.item.StorageItem;
 import org.sonatype.nexus.proxy.maven.ArtifactStoreRequest;
 import org.sonatype.nexus.proxy.maven.MavenRepository;
+import org.sonatype.nexus.proxy.maven.RepositoryPolicy;
 import org.sonatype.nexus.proxy.maven.gav.Gav;
 import org.sonatype.nexus.proxy.registry.RepositoryRegistry;
+import org.sonatype.nexus.proxy.repository.ProxyRepository;
 import org.sonatype.nexus.proxy.repository.Repository;
 import org.sonatype.nexus.rest.AbstractArtifactViewProvider;
 import org.sonatype.nexus.rest.ArtifactViewProvider;
@@ -34,11 +45,18 @@ import java.util.Properties;
 @Component(role = ArtifactViewProvider.class, hint = "depmgmt")
 public class DependencyManagementPlexusResource extends AbstractArtifactViewProvider {
 
+  private static final Logger LOGGER = LoggerFactory.getLogger(DependencyManagementPlexusResource.class);
+
   @Requirement
   private RepositoryRegistry repositoryRegistry;
 
   @Requirement
   private NexusMavenBridge nexusMavenBridge;
+
+  @Requirement
+  private NexusAether nexusAether;
+
+  private List<RemoteRepository> remoteRepositories;
 
   @Override
   protected Object retrieveView(ResourceStoreRequest request, RepositoryItemUid itemUid, StorageItem item, Request req) throws IOException {
@@ -87,10 +105,59 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
       Artifact artifact = child.getDependency().getArtifact();
       Dependency childDep = new Dependency(artifact);
       buildDependencies(childDep, child.getChildren());
+      addLatestVersionInfo(childDep, artifact);
       result.add(childDep);
     }
 
     parent.setDependencies(result.toArray(new Dependency[] {}));
+  }
+
+  private void addLatestVersionInfo(Dependency dependency, Artifact artifact) {
+    if (dependency.getGroupId().contains("terracotta")) {
+
+      LOGGER.debug("Version range request for {}", artifact);
+      VersionRangeRequest request = new VersionRangeRequest();
+      request.setArtifact(new DefaultArtifact(artifact.getGroupId(), artifact.getArtifactId(), artifact.getExtension(), getVersionRange(artifact.getVersion())));
+      request.setRepositories(getRemoteRepositories());
+
+      try {
+        VersionRangeResult versionRangeResult = nexusAether.getRepositorySystem()
+            .resolveVersionRange(nexusAether.getDefaultRepositorySystemSession(), request);
+        LOGGER.debug("Version range result: {} with possible exceptions: {} for {}", versionRangeResult.getVersions(), versionRangeResult
+            .getExceptions(), artifact);
+        Version highestVersion = versionRangeResult.getHighestVersion();
+        if (highestVersion != null) {
+          LOGGER.debug("Setting latest version to {} for {}", highestVersion, artifact);
+          dependency.setLatestVersion(highestVersion.toString());
+        }
+      } catch (VersionRangeResolutionException e) {
+        LOGGER.error("Unable to resolve version range", e);
+      }
+    }
+  }
+
+  private List<RemoteRepository> getRemoteRepositories() {
+    if (remoteRepositories == null) {
+      remoteRepositories = new ArrayList<RemoteRepository>();
+      for (MavenRepository mavenRepository : repositoryRegistry.getRepositoriesWithFacet(MavenRepository.class)) {
+        if (RepositoryPolicy.RELEASE.equals(mavenRepository.getRepositoryPolicy())) {
+          String url = mavenRepository.getLocalUrl();
+          if (mavenRepository.getRepositoryKind().isFacetAvailable(ProxyRepository.class)) {
+            ProxyRepository proxyRepository = mavenRepository.adaptToFacet(ProxyRepository.class);
+            url = proxyRepository.getRemoteUrl();
+          }
+          LOGGER.debug("Adding repository {} ({})", mavenRepository.getId(), url);
+          remoteRepositories.add(new RemoteRepository(mavenRepository.getId(), "default", url));
+        } else {
+          LOGGER.debug("Ignoring repository {}", mavenRepository.getId());
+        }
+      }
+    }
+    return remoteRepositories;
+  }
+
+  private String getVersionRange(String version) {
+    return "(" + version + ",)";
   }
 
   private List<MavenRepository> repositories() {

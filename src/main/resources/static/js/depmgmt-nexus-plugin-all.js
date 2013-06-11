@@ -106,7 +106,11 @@ Ext.extend(Sonatype.repoServer.DependencyManagementPanel, Ext.form.FormPanel, {
 });
 
 function fillTreeNode(treeNode, artifact) {
-    treeNode.setText(artifact.groupId + ':' + artifact.artifactId + ':' + artifact.version);
+    var text = artifact.groupId + ':' + artifact.artifactId + ':' + artifact.version
+    if (artifact.latestVersion) {
+        text = text + ' - New version available: ' + artifact.latestVersion
+    }
+    treeNode.setText(text);
     if (artifact.groupId.indexOf('terracotta') > -1) {
         treeNode.setIcon("icons/depmgmt-nexus-plugin/terracotta-jar.png");
         return true;

@@ -2,9 +2,6 @@ package org.terracotta.nexus.plugins.depmgmt.model;
 
 import org.sonatype.aether.artifact.Artifact;
 
-import java.util.ArrayList;
-import java.util.Collection;
-
 /**
  * @author Ludovic Orban
  */
@@ -14,6 +11,7 @@ public class Dependency {
   private String artifactId;
   private String version;
   private Dependency[] dependencies;
+  private String latestVersion;
 
   public Dependency() {
   }
@@ -54,5 +52,13 @@ public class Dependency {
 
   public void setDependencies(Dependency[] dependencies) {
     this.dependencies = dependencies;
+  }
+
+  public void setLatestVersion(String newVersion) {
+    this.latestVersion = newVersion;
+  }
+
+  public String getLatestVersion() {
+    return latestVersion;
   }
 }
