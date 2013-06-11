@@ -109,20 +109,28 @@ function fillTreeNode(treeNode, artifact) {
     treeNode.setText(artifact.groupId + ':' + artifact.artifactId + ':' + artifact.version);
     if (artifact.groupId.indexOf('terracotta') > -1) {
         treeNode.setIcon("icons/depmgmt-nexus-plugin/terracotta-jar.png");
+        return true;
     } else {
         treeNode.setIcon("icons/depmgmt-nexus-plugin/jar-jar.png");
+        return false;
     }
 }
 
 function appendChildren(treeNode, dependencies) {
+    var expand = false;
     for (var i = 0; i<dependencies.length ; i++) {
         var dependency = dependencies[i];
 
-        var subNode = new Ext.tree.TreeNode({expanded: true});
-        fillTreeNode(subNode, dependency);
-        treeNode.appendChild(subNode);
+        var subNode = new Ext.tree.TreeNode();
+        if (fillTreeNode(subNode, dependency)) {
+            expand = true;
+        }
 
         appendChildren(subNode, dependency.dependencies);
+        treeNode.appendChild(subNode);
+    }
+    if (expand) {
+        treeNode.expand();
     }
 }
 
