@@ -107,7 +107,7 @@ Ext.extend(Sonatype.repoServer.DependencyManagementPanel, Ext.form.FormPanel, {
 
 function fillTreeNode(treeNode, artifact) {
     treeNode.setText(artifact.groupId + ':' + artifact.artifactId + ':' + artifact.version);
-    if (artifact.groupId.contains('terracotta')) {
+    if (artifact.groupId.indexOf('terracotta') > -1) {
         treeNode.setIcon("icons/depmgmt-nexus-plugin/terracotta-jar.png");
     } else {
         treeNode.setIcon("icons/depmgmt-nexus-plugin/jar-jar.png");
