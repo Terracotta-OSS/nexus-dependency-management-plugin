@@ -66,7 +66,7 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
       StorageFileItem pom = itemRepository.getArtifactStoreHelper().retrieveArtifactPom(new ArtifactStoreRequest(itemRepository, gav, true));
 
       DependencyNode dependencyNode = nexusMavenBridge.collectDependencies(Utils.createDependencyFromGav(gav, "compile"), repositories());
-      Dependency rootDep = buildDependencies(dependencyNode);
+      Dependency rootDep = buildDependencies(dependencyNode, gav.isSnapshot());
 
       /*
       WTF? I get:
@@ -92,48 +92,52 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
     }
   }
 
-  private Dependency buildDependencies(DependencyNode dependencyNode) {
-    Dependency dependency = new Dependency(dependencyNode.getDependency().getArtifact());
-    buildDependencies(dependency, dependencyNode.getChildren());
-    return dependency;
+  private Dependency buildDependencies(DependencyNode parentNode, boolean snapshot) {
+    Dependency parent = new Dependency(parentNode.getDependency().getArtifact());
+    boolean hasNewerVersion = addLatestVersionInfo(parent, parentNode.getDependency().getArtifact());
+    // if the artifact is not the latest snapshot, don't bother adding version info to its deps
+    buildDependencies(parent, parentNode.getChildren(), snapshot & !hasNewerVersion);
+    return parent;
   }
 
-  private void buildDependencies(Dependency parent, List<DependencyNode> children) {
+  private void buildDependencies(Dependency parent, List<DependencyNode> children, boolean addVersionInfo) {
     Collection<Dependency> result = new ArrayList<Dependency>();
 
     for (DependencyNode child : children) {
       Artifact artifact = child.getDependency().getArtifact();
       Dependency childDep = new Dependency(artifact);
-      buildDependencies(childDep, child.getChildren());
-      addLatestVersionInfo(childDep, artifact);
+      buildDependencies(childDep, child.getChildren(), addVersionInfo);
+      if (addVersionInfo && parent.getGroupId().contains("terracotta")) {
+        addLatestVersionInfo(childDep, artifact);
+      }
       result.add(childDep);
     }
 
     parent.setDependencies(result.toArray(new Dependency[] {}));
   }
 
-  private void addLatestVersionInfo(Dependency dependency, Artifact artifact) {
-    if (dependency.getGroupId().contains("terracotta")) {
+  /**
+   * @return true if a new version was found, false otherwise
+   */
+  private boolean addLatestVersionInfo(Dependency dependency, Artifact artifact) {
+    LOGGER.debug("Version range request for {}", artifact);
+    VersionRangeRequest request = new VersionRangeRequest();
+    request.setArtifact(new DefaultArtifact(artifact.getGroupId(), artifact.getArtifactId(), artifact.getExtension(), getVersionRange(artifact .getVersion())));
+    request.setRepositories(getRemoteRepositories());
 
-      LOGGER.debug("Version range request for {}", artifact);
-      VersionRangeRequest request = new VersionRangeRequest();
-      request.setArtifact(new DefaultArtifact(artifact.getGroupId(), artifact.getArtifactId(), artifact.getExtension(), getVersionRange(artifact.getVersion())));
-      request.setRepositories(getRemoteRepositories());
-
-      try {
-        VersionRangeResult versionRangeResult = nexusAether.getRepositorySystem()
-            .resolveVersionRange(nexusAether.getDefaultRepositorySystemSession(), request);
-        LOGGER.debug("Version range result: {} with possible exceptions: {} for {}", versionRangeResult.getVersions(), versionRangeResult
-            .getExceptions(), artifact);
-        Version highestVersion = versionRangeResult.getHighestVersion();
-        if (highestVersion != null) {
-          LOGGER.debug("Setting latest version to {} for {}", highestVersion, artifact);
-          dependency.setLatestVersion(highestVersion.toString());
-        }
-      } catch (VersionRangeResolutionException e) {
-        LOGGER.error("Unable to resolve version range", e);
+    try {
+      VersionRangeResult versionRangeResult = nexusAether.getRepositorySystem().resolveVersionRange(nexusAether.getDefaultRepositorySystemSession(), request);
+      LOGGER.debug("Version range result: {} with possible exceptions: {} for {}", versionRangeResult.getVersions(), versionRangeResult .getExceptions(), artifact);
+      Version highestVersion = versionRangeResult.getHighestVersion();
+      if (highestVersion != null) {
+        LOGGER.debug("Setting latest version to {} for {}", highestVersion, artifact);
+        dependency.setLatestVersion(highestVersion.toString());
+        return true;
       }
+    } catch (VersionRangeResolutionException e) {
+      LOGGER.error("Unable to resolve version range", e);
     }
+    return false;
   }
 
   private List<RemoteRepository> getRemoteRepositories() {

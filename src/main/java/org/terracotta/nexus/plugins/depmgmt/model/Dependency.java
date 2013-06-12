@@ -10,6 +10,7 @@ public class Dependency {
   private String groupId;
   private String artifactId;
   private String version;
+  private boolean snapshot;
   private Dependency[] dependencies;
   private String latestVersion;
 
@@ -20,6 +21,7 @@ public class Dependency {
     this.groupId = artifact.getGroupId();
     this.artifactId = artifact.getArtifactId();
     this.version = artifact.getVersion();
+    this.snapshot = artifact.isSnapshot();
   }
 
   public String getGroupId() {
@@ -44,6 +46,14 @@ public class Dependency {
 
   public void setVersion(String version) {
     this.version = version;
+  }
+
+  public boolean isSnapshot() {
+    return snapshot;
+  }
+
+  public void setSnapshot(boolean snapshot) {
+    this.snapshot = snapshot;
   }
 
   public Dependency[] getDependencies() {

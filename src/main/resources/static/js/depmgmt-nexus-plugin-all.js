@@ -61,6 +61,8 @@ Ext.extend(Sonatype.repoServer.DependencyManagementPanel, Ext.form.FormPanel, {
             this.find('name', 'svnRevision')[0].setRawValue(null);
             this.find('name', 'buildUrl')[0].setRawValue(null);
             this.find('name', 'treePanel')[0].getRootNode().removeAll(true);
+            this.find('name', 'treePanel')[0].getRootNode().setText(null);
+            this.find('name', 'treePanel')[0].getRootNode().setIcon(null);
         } else {
             var resourceURI = this.data.resourceURI;
 
@@ -73,13 +75,27 @@ Ext.extend(Sonatype.repoServer.DependencyManagementPanel, Ext.form.FormPanel, {
                         if (resp.error != null) {
                             that.find('name', 'error')[0].setText(resp.error);
                         } else {
-                            if (resp.buildProfiles != null) that.find('name', 'buildProfiles')[0].setRawValue(resp.buildProfiles);
-                            if (resp.svnRevision != null) that.find('name', 'svnRevision')[0].setRawValue(resp.svnRevision);
-                            if (resp.buildUrl != null) that.find('name', 'buildUrl')[0].setRawValue('<a href="' + resp.buildUrl + '" target="_blank">' + resp.buildUrl + '</a>');
+                            var buildProfiles = that.find('name', 'buildProfiles')[0];
+                            var svnRevision = that.find('name', 'svnRevision')[0];
+                            var buildUrl = that.find('name', 'buildUrl')[0];
+                            if (resp.artifact.snapshot) {
+                                buildProfiles.hide();
+                                svnRevision.hide();
+                                buildUrl.hide();
+                            } else {
+                                var defaultText = '<span style="color: #dd2222;font-style: bold;">Missing</span>';
+
+                                buildProfiles.setRawValue(resp.buildProfiles == null ? defaultText : resp.buildProfiles);
+                                svnRevision.setRawValue(resp.svnRevision == null ? defaultText : resp.svnRevision);
+                                buildUrl.setRawValue(resp.buildUrl == null ? defaultText : '<a href="' + resp.buildUrl + '" target="_blank">' + resp.buildUrl + '</a>');
+                                buildProfiles.show();
+                                svnRevision.show();
+                                buildUrl.show();
+                            }
 
                             if (resp.artifact != null) {
                                 var rootNode = that.find('name', 'treePanel')[0].getRootNode();
-                                fillTreeNode(rootNode, resp.artifact);
+                                fillTreeNode(rootNode, resp.artifact, true);
                                 appendChildren(rootNode, resp.artifact.dependencies);
                             } else {
                                 that.find('name', 'treePanel')[0].getRootNode().removeAll(true);
@@ -105,19 +121,25 @@ Ext.extend(Sonatype.repoServer.DependencyManagementPanel, Ext.form.FormPanel, {
 
 });
 
-function fillTreeNode(treeNode, artifact) {
-    var text = artifact.groupId + ':' + artifact.artifactId + ':' + artifact.version
+function fillTreeNode(treeNode, artifact, rootNode) {
+    var expand = false;
+    var text = artifact.groupId + ':' + artifact.artifactId + ':' + artifact.version;
     if (artifact.latestVersion) {
-        text = text + ' - New version available: ' + artifact.latestVersion
+        text = text + '&nbsp;&nbsp;<span style="background-color: #55aa55;color: #ffffff;font-style: italic;">New version available: ' + artifact.latestVersion + '</span>';
+        expand = true;
+    } else if (rootNode) {
+        var qualifier = (artifact.snapshot ? "Snapshot" : "Release");
+        text = text + '&nbsp;&nbsp;<span style="background-color: #5555aa;color: #ffffff;font-style: italic;">Latest ' + qualifier + '</span>';
     }
     treeNode.setText(text);
+
     if (artifact.groupId.indexOf('terracotta') > -1) {
         treeNode.setIcon("icons/depmgmt-nexus-plugin/terracotta-jar.png");
-        return true;
+        expand = true;
     } else {
         treeNode.setIcon("icons/depmgmt-nexus-plugin/jar-jar.png");
-        return false;
     }
+    return expand;
 }
 
 function appendChildren(treeNode, dependencies) {
@@ -126,16 +148,14 @@ function appendChildren(treeNode, dependencies) {
         var dependency = dependencies[i];
 
         var subNode = new Ext.tree.TreeNode();
-        if (fillTreeNode(subNode, dependency)) {
+        if (fillTreeNode(subNode, dependency, false)) {
             expand = true;
         }
 
         appendChildren(subNode, dependency.dependencies);
         treeNode.appendChild(subNode);
     }
-    if (expand) {
-        treeNode.expand();
-    }
+    treeNode.expanded = expand;
 }
 
 Sonatype.Events.addListener("fileContainerInit", function (items) {
