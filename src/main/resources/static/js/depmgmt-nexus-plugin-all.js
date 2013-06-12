@@ -93,12 +93,11 @@ Ext.extend(Sonatype.repoServer.DependencyManagementPanel, Ext.form.FormPanel, {
                                 buildUrl.show();
                             }
 
+                            that.find('name', 'treePanel')[0].getRootNode().removeAll(true);
                             if (resp.artifact != null) {
                                 var rootNode = that.find('name', 'treePanel')[0].getRootNode();
                                 fillRootTreeNode(rootNode, resp.artifact);
                                 appendChildren(rootNode, resp.artifact.dependencies);
-                            } else {
-                                that.find('name', 'treePanel')[0].getRootNode().removeAll(true);
                             }
 
                             that.find('name', 'error')[0].setText(null);
