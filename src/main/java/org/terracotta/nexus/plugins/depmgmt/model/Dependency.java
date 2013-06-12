@@ -13,7 +13,8 @@ public class Dependency {
   private boolean snapshot;
   private boolean terracottaMaintained;
   private Dependency[] dependencies;
-  private String latestVersion;
+  private String latestReleaseVersion;
+  private String latestSnapshotVersion;
 
   public Dependency() {
   }
@@ -75,11 +76,19 @@ public class Dependency {
     this.dependencies = dependencies;
   }
 
-  public void setLatestVersion(String newVersion) {
-    this.latestVersion = newVersion;
+  public void setLatestReleaseVersion(String newVersion) {
+    this.latestReleaseVersion = newVersion;
   }
 
-  public String getLatestVersion() {
-    return latestVersion;
+  public String getLatestReleaseVersion() {
+    return latestReleaseVersion;
+  }
+
+  public String getLatestSnapshotVersion() {
+    return latestSnapshotVersion;
+  }
+
+  public void setLatestSnapshotVersion(String latestSnapshotVersion) {
+    this.latestSnapshotVersion = latestSnapshotVersion;
   }
 }

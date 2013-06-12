@@ -56,8 +56,6 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
   @Requirement
   private NexusAether nexusAether;
 
-  private List<RemoteRepository> remoteRepositories;
-
   @Override
   protected Object retrieveView(ResourceStoreRequest request, RepositoryItemUid itemUid, StorageItem item, Request req) throws IOException {
     try {
@@ -94,7 +92,7 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
 
   private Dependency buildDependencies(DependencyNode parentNode, boolean snapshot) {
     Dependency parent = new Dependency(parentNode.getDependency().getArtifact());
-    addLatestVersionInfo(parent, parentNode.getDependency().getArtifact());
+    addLatestVersionInfo(parent, parentNode.getDependency().getArtifact(), false);
     // if the artifact is not a snapshot, don't bother adding version info to its deps
     buildDependencies(parent, parentNode.getChildren(), snapshot);
     return parent;
@@ -108,7 +106,7 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
       Dependency childDep = new Dependency(artifact);
       buildDependencies(childDep, child.getChildren(), addVersionInfo);
       if (addVersionInfo && parent.isTerracottaMaintained()) {
-        addLatestVersionInfo(childDep, artifact);
+        addLatestVersionInfo(childDep, artifact, true);
       }
       result.add(childDep);
     }
@@ -119,19 +117,38 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
   /**
    * @return true if a new version was found, false otherwise
    */
-  private boolean addLatestVersionInfo(Dependency dependency, Artifact artifact) {
+  private boolean addLatestVersionInfo(Dependency dependency, Artifact artifact, boolean releaseOnly) {
     LOGGER.debug("Version range request for {}", artifact);
-    VersionRangeRequest request = new VersionRangeRequest();
-    request.setArtifact(new DefaultArtifact(artifact.getGroupId(), artifact.getArtifactId(), artifact.getExtension(), getVersionRange(artifact .getVersion())));
-    request.setRepositories(getRemoteRepositories());
+
+    if (!releaseOnly) {
+      try {
+        VersionRangeRequest request = new VersionRangeRequest();
+        request.setArtifact(new DefaultArtifact(artifact.getGroupId(), artifact.getArtifactId(), artifact.getExtension(), "[,]"));
+        request.setRepositories(getRemoteRepositories(RepositoryPolicy.SNAPSHOT));
+
+        VersionRangeResult versionRangeResult = nexusAether.getRepositorySystem().resolveVersionRange(nexusAether.getDefaultRepositorySystemSession(), request);
+        LOGGER.debug("Version range result: {} with possible exceptions: {} for {}", versionRangeResult.getVersions(), versionRangeResult.getExceptions(), artifact);
+        Version highestVersion = versionRangeResult.getHighestVersion();
+        if (highestVersion != null && !artifact.getBaseVersion().equals(highestVersion.toString())) {
+          LOGGER.debug("Setting latest version to {} for {}", highestVersion, artifact);
+          dependency.setLatestSnapshotVersion(highestVersion.toString());
+        }
+      } catch (VersionRangeResolutionException e) {
+        LOGGER.error("Unable to resolve version range", e);
+      }
+    }
 
     try {
+      VersionRangeRequest request = new VersionRangeRequest();
+      request.setArtifact(new DefaultArtifact(artifact.getGroupId(), artifact.getArtifactId(), artifact.getExtension(), "[,]"));
+      request.setRepositories(getRemoteRepositories(RepositoryPolicy.RELEASE));
+
       VersionRangeResult versionRangeResult = nexusAether.getRepositorySystem().resolveVersionRange(nexusAether.getDefaultRepositorySystemSession(), request);
-      LOGGER.debug("Version range result: {} with possible exceptions: {} for {}", versionRangeResult.getVersions(), versionRangeResult .getExceptions(), artifact);
+      LOGGER.debug("Version range result: {} with possible exceptions: {} for {}", versionRangeResult.getVersions(), versionRangeResult.getExceptions(), artifact);
       Version highestVersion = versionRangeResult.getHighestVersion();
-      if (highestVersion != null) {
+      if (highestVersion != null && !artifact.getBaseVersion().equals(highestVersion.toString())) {
         LOGGER.debug("Setting latest version to {} for {}", highestVersion, artifact);
-        dependency.setLatestVersion(highestVersion.toString());
+        dependency.setLatestReleaseVersion(highestVersion.toString());
         return true;
       }
     } catch (VersionRangeResolutionException e) {
@@ -140,28 +157,22 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
     return false;
   }
 
-  private List<RemoteRepository> getRemoteRepositories() {
-    if (remoteRepositories == null) {
-      remoteRepositories = new ArrayList<RemoteRepository>();
-      for (MavenRepository mavenRepository : repositoryRegistry.getRepositoriesWithFacet(MavenRepository.class)) {
-        if (RepositoryPolicy.RELEASE.equals(mavenRepository.getRepositoryPolicy())) {
-          String url = mavenRepository.getLocalUrl();
-          if (mavenRepository.getRepositoryKind().isFacetAvailable(ProxyRepository.class)) {
-            ProxyRepository proxyRepository = mavenRepository.adaptToFacet(ProxyRepository.class);
-            url = proxyRepository.getRemoteUrl();
-          }
-          LOGGER.debug("Adding repository {} ({})", mavenRepository.getId(), url);
-          remoteRepositories.add(new RemoteRepository(mavenRepository.getId(), "default", url));
-        } else {
-          LOGGER.debug("Ignoring repository {}", mavenRepository.getId());
+  private List<RemoteRepository> getRemoteRepositories(RepositoryPolicy policy) {
+    List<RemoteRepository> remoteRepositories = new ArrayList<RemoteRepository>();
+    for (MavenRepository mavenRepository : repositoryRegistry.getRepositoriesWithFacet(MavenRepository.class)) {
+      if (policy.equals(mavenRepository.getRepositoryPolicy())) {
+        String url = mavenRepository.getLocalUrl();
+        if (mavenRepository.getRepositoryKind().isFacetAvailable(ProxyRepository.class)) {
+          ProxyRepository proxyRepository = mavenRepository.adaptToFacet(ProxyRepository.class);
+          url = proxyRepository.getRemoteUrl();
         }
+        LOGGER.debug("Adding repository {} ({})", mavenRepository.getId(), url);
+        remoteRepositories.add(new RemoteRepository(mavenRepository.getId(), "default", url));
+      } else {
+        LOGGER.debug("Ignoring repository {}", mavenRepository.getId());
       }
     }
     return remoteRepositories;
-  }
-
-  private String getVersionRange(String version) {
-    return "(" + version + ",)";
   }
 
   private List<MavenRepository> repositories() {

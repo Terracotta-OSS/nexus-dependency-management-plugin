@@ -95,7 +95,7 @@ Ext.extend(Sonatype.repoServer.DependencyManagementPanel, Ext.form.FormPanel, {
 
                             if (resp.artifact != null) {
                                 var rootNode = that.find('name', 'treePanel')[0].getRootNode();
-                                fillTreeNode(rootNode, resp.artifact, true);
+                                fillRootTreeNode(rootNode, resp.artifact);
                                 appendChildren(rootNode, resp.artifact.dependencies);
                             } else {
                                 that.find('name', 'treePanel')[0].getRootNode().removeAll(true);
@@ -121,20 +121,43 @@ Ext.extend(Sonatype.repoServer.DependencyManagementPanel, Ext.form.FormPanel, {
 
 });
 
-function fillTreeNode(treeNode, artifact, rootNode) {
+function fillRootTreeNode(treeNode, artifact) {
+    var text = artifact.groupId + ':' + artifact.artifactId + ':' + artifact.version;
+
+    text = text + '&nbsp;&nbsp;<span style="background-color: #5555aa;color: #ffffff;font-style: italic;">Latest Snapshot';
+    if (artifact.latestSnapshotVersion != null) {
+        text = text + ': ' + artifact.latestSnapshotVersion + '</span>';
+    } else {
+        text = text + '</span>';
+    }
+
+    text = text + '&nbsp;&nbsp;<span style="background-color: #5555aa;color: #ffffff;font-style: italic;">Latest Release';
+    if (artifact.latestReleaseVersion != null) {
+        text = text + ': ' + artifact.latestReleaseVersion + '</span>';
+    } else {
+        text = text + '</span>';
+    }
+
+    treeNode.setText(text);
+
+    if (artifact.terracottaMaintained) {
+        treeNode.setIcon("icons/depmgmt-nexus-plugin/terracotta-jar.png");
+    } else {
+        treeNode.setIcon("icons/depmgmt-nexus-plugin/jar-jar.png");
+    }
+}
+
+function fillTreeNode(treeNode, artifact) {
     var expand = false;
     var text = artifact.groupId + ':' + artifact.artifactId + ':' + artifact.version;
 
-    if (artifact.latestVersion) {
-        text = text + '&nbsp;&nbsp;<span style="background-color: #55aa55;color: #ffffff;font-style: italic;">New version available: ' + artifact.latestVersion + '</span>';
+    if (artifact.snapshot) {
+        text = '<span style="background-color: #aa5555;color: #ffffff;">' + text + '</span>';
         expand = true;
-    } else if (rootNode) {
-        var qualifier = (artifact.snapshot ? "Snapshot" : "Release");
-        text = text + '&nbsp;&nbsp;<span style="background-color: #5555aa;color: #ffffff;font-style: italic;">Latest ' + qualifier + '</span>';
     }
 
-    if (!rootNode && artifact.snapshot) {
-        text = '<span style="background-color: #aa5555;color: #ffffff;padding-right: 0px;">' + text + '</span>';
+    if (artifact.latestReleaseVersion != null) {
+        text = text + '&nbsp;&nbsp;<span style="background-color: #55aa55;color: #ffffff;font-style: italic;">New Release available: ' + artifact.latestReleaseVersion + '</span>';
         expand = true;
     }
 
@@ -155,7 +178,7 @@ function appendChildren(treeNode, dependencies) {
         var dependency = dependencies[i];
 
         var subNode = new Ext.tree.TreeNode();
-        if (fillTreeNode(subNode, dependency, false)) {
+        if (fillTreeNode(subNode, dependency)) {
             expand = true;
         }
 
