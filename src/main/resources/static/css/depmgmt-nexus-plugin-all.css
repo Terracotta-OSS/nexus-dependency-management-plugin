@@ -1,0 +1,24 @@
+.error {
+    color: #dd2222;
+}
+
+.missing {
+    color: #dd2222;
+    font-weight: bold;
+}
+
+.latest-snapshot {
+    background-color: #5555aa;color: #ffffff;font-style: italic;
+}
+
+.latest-release {
+    background-color: #5555aa;color: #ffffff;font-style: italic;
+}
+
+.new-release {
+    background-color: #55aa55;color: #ffffff;font-style: italic;
+}
+
+.snapshot {
+    background-color: #aa5555;color: #ffffff;
+}

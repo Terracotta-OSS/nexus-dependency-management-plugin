@@ -18,6 +18,7 @@ public class DependencyManagementNexusPluginResourceBundle extends AbstractNexus
   public List<StaticResource> getContributedResouces() {
     return new ArrayList<StaticResource>() {{
       add(new DefaultStaticResource(getClass().getResource("/static/js/depmgmt-nexus-plugin-all.js"), "/js/depmgmt-nexus-plugin/depmgmt-nexus-plugin-all.js", "text/javascript"));
+      add(new DefaultStaticResource(getClass().getResource("/static/css/depmgmt-nexus-plugin-all.css"), "/css/depmgmt-nexus-plugin/depmgmt-nexus-plugin-all.css", "text/css"));
       add(new DefaultStaticResource(getClass().getResource("/static/icons/jar-jar.png"), "/icons/depmgmt-nexus-plugin/jar-jar.png", "image/png"));
       add(new DefaultStaticResource(getClass().getResource("/static/icons/terracotta-jar.png"), "/icons/depmgmt-nexus-plugin/terracotta-jar.png", "image/png"));
     }};

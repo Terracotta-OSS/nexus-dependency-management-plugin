@@ -44,7 +44,13 @@ Sonatype.repoServer.DependencyManagementPanel = function (config) {
             title: 'Dependencies',
             loader: new Ext.tree.TreeLoader(),
             root: new Ext.tree.TreeNode({expanded: true}),
-            rootVisible: true
+            rootVisible: true,
+            listeners: {
+              dblclick: {
+                fn: this.search,
+                scope: this
+              }
+            }
         }]
     });
 
@@ -73,7 +79,7 @@ Ext.extend(Sonatype.repoServer.DependencyManagementPanel, Ext.form.FormPanel, {
                         var resp = Ext.decode(response.responseText);
 
                         if (resp.error != null) {
-                            that.find('name', 'error')[0].setText('<span style="color: #dd2222;">' + resp.error + '</span>');
+                            that.find('name', 'error')[0].setText('<span class="error">' + resp.error + '</span>');
                         } else {
                             var buildProfiles = that.find('name', 'buildProfiles')[0];
                             var svnRevision = that.find('name', 'svnRevision')[0];
@@ -83,7 +89,7 @@ Ext.extend(Sonatype.repoServer.DependencyManagementPanel, Ext.form.FormPanel, {
                                 svnRevision.hide();
                                 buildUrl.hide();
                             } else {
-                                var defaultText = '<span style="color: #dd2222;font-style: bold;">Missing</span>';
+                                var defaultText = '<span class="missing">Missing</span>';
 
                                 buildProfiles.setRawValue(resp.buildProfiles == null ? defaultText : resp.buildProfiles);
                                 svnRevision.setRawValue(resp.svnRevision == null ? defaultText : resp.svnRevision);
@@ -116,6 +122,12 @@ Ext.extend(Sonatype.repoServer.DependencyManagementPanel, Ext.form.FormPanel, {
             });
 
         }
+    },
+    search: function (node, event) {
+      var groupId = node.attributes.groupId;
+      var artifactId = node.attributes.artifactId;
+      var version = node.attributes.version;
+      window.location = "index.html#nexus-search;gav~" + groupId + "~" + artifactId + "~" + version + "~~~";
     }
 
 });
@@ -123,14 +135,14 @@ Ext.extend(Sonatype.repoServer.DependencyManagementPanel, Ext.form.FormPanel, {
 function fillRootTreeNode(treeNode, artifact) {
     var text = artifact.groupId + ':' + artifact.artifactId + ':' + artifact.version;
 
-    text = text + '&nbsp;&nbsp;<span style="background-color: #5555aa;color: #ffffff;font-style: italic;">Latest Snapshot';
+    text = text + '&nbsp;&nbsp;<span class="latest-snapshot">Latest Snapshot';
     if (artifact.latestSnapshotVersion != null) {
         text = text + ': ' + artifact.latestSnapshotVersion + '</span>';
     } else {
         text = text + '</span>';
     }
 
-    text = text + '&nbsp;&nbsp;<span style="background-color: #5555aa;color: #ffffff;font-style: italic;">Latest Release';
+    text = text + '&nbsp;&nbsp;<span class="latest-release">Latest Release';
     if (artifact.latestReleaseVersion != null) {
         text = text + ': ' + artifact.latestReleaseVersion + '</span>';
     } else {
@@ -151,18 +163,22 @@ function fillTreeNode(treeNode, artifact) {
     var text = artifact.groupId + ':' + artifact.artifactId + ':' + artifact.version;
 
     if (artifact.snapshot) {
-        text = '<span style="background-color: #aa5555;color: #ffffff;">' + text + '</span>';
+        text = '<span class="snapshot">' + text + '</span>';
         expand = true;
     }
 
     if (artifact.latestReleaseVersion != null) {
-        text = text + '&nbsp;&nbsp;<span style="background-color: #55aa55;color: #ffffff;font-style: italic;">New Release available: ' + artifact.latestReleaseVersion + '</span>';
+        text = text + '&nbsp;&nbsp;<span class="new-release">New Release available: ' + artifact.latestReleaseVersion + '</span>';
         expand = true;
     }
 
     treeNode.setText(text);
+    treeNode.attributes.groupId = artifact.groupId;
+    treeNode.attributes.artifactId = artifact.artifactId;
+    treeNode.attributes.version = artifact.version;
 
-    if (artifact.terracottaMaintained) {
+
+  if (artifact.terracottaMaintained) {
         treeNode.setIcon("icons/depmgmt-nexus-plugin/terracotta-jar.png");
         expand = true;
     } else {
