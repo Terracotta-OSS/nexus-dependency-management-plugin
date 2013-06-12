@@ -11,6 +11,7 @@ public class Dependency {
   private String artifactId;
   private String version;
   private boolean snapshot;
+  private boolean terracottaMaintained;
   private Dependency[] dependencies;
   private String latestVersion;
 
@@ -22,6 +23,8 @@ public class Dependency {
     this.artifactId = artifact.getArtifactId();
     this.version = artifact.getVersion();
     this.snapshot = artifact.isSnapshot();
+    // TODO: terracottaMaintained should be true if the artifact's repository is of type "hosted" and contains "terracotta" in its ID.
+    this.terracottaMaintained = groupId.contains("terracotta");
   }
 
   public String getGroupId() {
@@ -54,6 +57,14 @@ public class Dependency {
 
   public void setSnapshot(boolean snapshot) {
     this.snapshot = snapshot;
+  }
+
+  public boolean isTerracottaMaintained() {
+    return terracottaMaintained;
+  }
+
+  public void setTerracottaMaintained(boolean terracottaMaintained) {
+    this.terracottaMaintained = terracottaMaintained;
   }
 
   public Dependency[] getDependencies() {

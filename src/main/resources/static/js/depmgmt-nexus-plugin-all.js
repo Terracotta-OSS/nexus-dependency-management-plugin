@@ -73,7 +73,7 @@ Ext.extend(Sonatype.repoServer.DependencyManagementPanel, Ext.form.FormPanel, {
                         var resp = Ext.decode(response.responseText);
 
                         if (resp.error != null) {
-                            that.find('name', 'error')[0].setText(resp.error);
+                            that.find('name', 'error')[0].setText('<span style="color: #dd2222;">' + resp.error + '</span>');
                         } else {
                             var buildProfiles = that.find('name', 'buildProfiles')[0];
                             var svnRevision = that.find('name', 'svnRevision')[0];
@@ -124,6 +124,7 @@ Ext.extend(Sonatype.repoServer.DependencyManagementPanel, Ext.form.FormPanel, {
 function fillTreeNode(treeNode, artifact, rootNode) {
     var expand = false;
     var text = artifact.groupId + ':' + artifact.artifactId + ':' + artifact.version;
+
     if (artifact.latestVersion) {
         text = text + '&nbsp;&nbsp;<span style="background-color: #55aa55;color: #ffffff;font-style: italic;">New version available: ' + artifact.latestVersion + '</span>';
         expand = true;
@@ -131,9 +132,15 @@ function fillTreeNode(treeNode, artifact, rootNode) {
         var qualifier = (artifact.snapshot ? "Snapshot" : "Release");
         text = text + '&nbsp;&nbsp;<span style="background-color: #5555aa;color: #ffffff;font-style: italic;">Latest ' + qualifier + '</span>';
     }
+
+    if (!rootNode && artifact.snapshot) {
+        text = '<span style="background-color: #aa5555;color: #ffffff;padding-right: 0px;">' + text + '</span>';
+        expand = true;
+    }
+
     treeNode.setText(text);
 
-    if (artifact.groupId.indexOf('terracotta') > -1) {
+    if (artifact.terracottaMaintained) {
         treeNode.setIcon("icons/depmgmt-nexus-plugin/terracotta-jar.png");
         expand = true;
     } else {

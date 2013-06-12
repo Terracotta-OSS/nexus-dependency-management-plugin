@@ -94,9 +94,9 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
 
   private Dependency buildDependencies(DependencyNode parentNode, boolean snapshot) {
     Dependency parent = new Dependency(parentNode.getDependency().getArtifact());
-    boolean hasNewerVersion = addLatestVersionInfo(parent, parentNode.getDependency().getArtifact());
-    // if the artifact is not the latest snapshot, don't bother adding version info to its deps
-    buildDependencies(parent, parentNode.getChildren(), snapshot & !hasNewerVersion);
+    addLatestVersionInfo(parent, parentNode.getDependency().getArtifact());
+    // if the artifact is not a snapshot, don't bother adding version info to its deps
+    buildDependencies(parent, parentNode.getChildren(), snapshot);
     return parent;
   }
 
@@ -107,7 +107,7 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
       Artifact artifact = child.getDependency().getArtifact();
       Dependency childDep = new Dependency(artifact);
       buildDependencies(childDep, child.getChildren(), addVersionInfo);
-      if (addVersionInfo && parent.getGroupId().contains("terracotta")) {
+      if (addVersionInfo && parent.isTerracottaMaintained()) {
         addLatestVersionInfo(childDep, artifact);
       }
       result.add(childDep);
