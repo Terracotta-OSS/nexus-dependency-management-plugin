@@ -26,6 +26,7 @@ import org.sonatype.nexus.proxy.maven.MavenRepository;
 import org.sonatype.nexus.proxy.maven.RepositoryPolicy;
 import org.sonatype.nexus.proxy.maven.gav.Gav;
 import org.sonatype.nexus.proxy.registry.RepositoryRegistry;
+import org.sonatype.nexus.proxy.repository.HostedRepository;
 import org.sonatype.nexus.proxy.repository.ProxyRepository;
 import org.sonatype.nexus.proxy.repository.Repository;
 import org.sonatype.nexus.rest.AbstractArtifactViewProvider;
@@ -111,14 +112,14 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
       result.add(childDep);
     }
 
-    parent.setDependencies(result.toArray(new Dependency[] {}));
+    parent.setDependencies(result.toArray(new Dependency[] { }));
   }
 
-  /**
-   * @return true if a new version was found, false otherwise
-   */
-  private boolean addLatestVersionInfo(Dependency dependency, Artifact artifact, boolean releaseOnly) {
+  private void addLatestVersionInfo(Dependency dependency, Artifact artifact, boolean releaseOnly) {
     LOGGER.debug("Version range request for {}", artifact);
+    if (!dependency.isTerracottaMaintained()) {
+      return;
+    }
 
     if (!releaseOnly) {
       try {
@@ -149,23 +150,17 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
       if (highestVersion != null && !artifact.getBaseVersion().equals(highestVersion.toString())) {
         LOGGER.debug("Setting latest version to {} for {}", highestVersion, artifact);
         dependency.setLatestReleaseVersion(highestVersion.toString());
-        return true;
       }
     } catch (VersionRangeResolutionException e) {
       LOGGER.error("Unable to resolve version range", e);
     }
-    return false;
   }
 
   private List<RemoteRepository> getRemoteRepositories(RepositoryPolicy policy) {
     List<RemoteRepository> remoteRepositories = new ArrayList<RemoteRepository>();
     for (MavenRepository mavenRepository : repositoryRegistry.getRepositoriesWithFacet(MavenRepository.class)) {
-      if (policy.equals(mavenRepository.getRepositoryPolicy())) {
+      if (policy.equals(mavenRepository.getRepositoryPolicy()) && mavenRepository.getRepositoryKind().isFacetAvailable(HostedRepository.class)) {
         String url = mavenRepository.getLocalUrl();
-        if (mavenRepository.getRepositoryKind().isFacetAvailable(ProxyRepository.class)) {
-          ProxyRepository proxyRepository = mavenRepository.adaptToFacet(ProxyRepository.class);
-          url = proxyRepository.getRemoteUrl();
-        }
         LOGGER.debug("Adding repository {} ({})", mavenRepository.getId(), url);
         remoteRepositories.add(new RemoteRepository(mavenRepository.getId(), "default", url));
       } else {

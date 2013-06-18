@@ -24,8 +24,9 @@ public class Dependency {
     this.artifactId = artifact.getArtifactId();
     this.version = artifact.getVersion();
     this.snapshot = artifact.isSnapshot();
-    // TODO: terracottaMaintained should be true if the artifact's repository is of type "hosted" and contains "terracotta" in its ID.
-    this.terracottaMaintained = groupId.contains("terracotta");
+    // TODO: terracottaMaintained should be true if the artifact's repository is of type "hosted"
+    // and contains "terracotta", "ehcache" or "quartz" in its ID.
+    this.terracottaMaintained = groupId.contains("terracotta") || groupId.contains("ehcache") || groupId.contains("quartz");
   }
 
   public String getGroupId() {
