@@ -159,8 +159,8 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
   private List<RemoteRepository> getRemoteRepositories(RepositoryPolicy policy) {
     List<RemoteRepository> remoteRepositories = new ArrayList<RemoteRepository>();
     for (MavenRepository mavenRepository : repositoryRegistry.getRepositoriesWithFacet(MavenRepository.class)) {
-      if (policy.equals(mavenRepository.getRepositoryPolicy()) && mavenRepository.getRepositoryKind().isFacetAvailable(HostedRepository.class)) {
-        String url = mavenRepository.getLocalUrl();
+      String url = mavenRepository.getLocalUrl();
+      if (!url.startsWith("http") && policy.equals(mavenRepository.getRepositoryPolicy()) && mavenRepository.getRepositoryKind().isFacetAvailable(HostedRepository.class)) {
         LOGGER.debug("Adding repository {} ({})", mavenRepository.getId(), url);
         remoteRepositories.add(new RemoteRepository(mavenRepository.getId(), "default", url));
       } else {
