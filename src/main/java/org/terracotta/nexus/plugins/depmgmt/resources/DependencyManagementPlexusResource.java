@@ -27,7 +27,6 @@ import org.sonatype.nexus.proxy.maven.RepositoryPolicy;
 import org.sonatype.nexus.proxy.maven.gav.Gav;
 import org.sonatype.nexus.proxy.registry.RepositoryRegistry;
 import org.sonatype.nexus.proxy.repository.HostedRepository;
-import org.sonatype.nexus.proxy.repository.ProxyRepository;
 import org.sonatype.nexus.proxy.repository.Repository;
 import org.sonatype.nexus.rest.AbstractArtifactViewProvider;
 import org.sonatype.nexus.rest.ArtifactViewProvider;
@@ -159,10 +158,14 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
   private List<RemoteRepository> getRemoteRepositories(RepositoryPolicy policy) {
     List<RemoteRepository> remoteRepositories = new ArrayList<RemoteRepository>();
     for (MavenRepository mavenRepository : repositoryRegistry.getRepositoriesWithFacet(MavenRepository.class)) {
-      String url = mavenRepository.getLocalUrl();
-      if (!url.startsWith("http") && policy.equals(mavenRepository.getRepositoryPolicy()) && mavenRepository.getRepositoryKind().isFacetAvailable(HostedRepository.class)) {
-        LOGGER.debug("Adding repository {} ({})", mavenRepository.getId(), url);
-        remoteRepositories.add(new RemoteRepository(mavenRepository.getId(), "default", url));
+      if (policy.equals(mavenRepository.getRepositoryPolicy()) && mavenRepository.getRepositoryKind().isFacetAvailable(HostedRepository.class)) {
+        String url = mavenRepository.getLocalUrl();
+        if (!url.startsWith("http")) {
+          LOGGER.debug("Adding repository {} ({})", mavenRepository.getId(), url);
+          remoteRepositories.add(new RemoteRepository(mavenRepository.getId(), "default", url));
+        } else {
+          LOGGER.warn("Repository {} with policy {} identifies as \"Hosted\" but local URL is {}", mavenRepository.getId(), policy, url);
+        }
       } else {
         LOGGER.debug("Ignoring repository {}", mavenRepository.getId());
       }
