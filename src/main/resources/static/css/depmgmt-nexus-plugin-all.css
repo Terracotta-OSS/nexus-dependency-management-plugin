@@ -1,24 +1,24 @@
 .error {
-    color: #dd2222;
+    color: #dd2222 !important;
 }
 
 .missing {
-    color: #dd2222;
+    color: #dd2222 !important;
     font-weight: bold;
 }
 
 .latest-snapshot {
-    background-color: #5555aa;color: #ffffff;font-style: italic;
+    background-color: #5555aa;color: #ffffff !important;font-style: italic;
 }
 
 .latest-release {
-    background-color: #5555aa;color: #ffffff;font-style: italic;
+    background-color: #5555aa;color: #ffffff !important;font-style: italic;
 }
 
 .new-release {
-    background-color: #55aa55;color: #ffffff;font-style: italic;
+    background-color: #55aa55;color: #ffffff !important;font-style: italic;
 }
 
 .snapshot {
-    background-color: #aa5555;color: #ffffff;
+    background-color: #aa5555;color: #ffffff !important;
 }
