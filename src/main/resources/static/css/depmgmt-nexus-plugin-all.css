@@ -7,6 +7,11 @@
     font-weight: bold;
 }
 
+.no-parent-pom {
+    color: #0000ff !important;
+    font-weight: bold;
+}
+
 .latest-snapshot {
     background-color: #5555aa;color: #ffffff !important;font-style: italic;
 }

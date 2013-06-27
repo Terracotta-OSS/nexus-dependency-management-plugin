@@ -18,12 +18,19 @@ Sonatype.repoServer.DependencyManagementPanel = function (config) {
             allowBlank : true,
             readOnly : true
         },{
-            xtype : 'displayfield',
-            fieldLabel : 'SVN Revision',
-            name : 'svnRevision',
-            anchor : Sonatype.view.FIELD_OFFSET_WITH_SCROLL,
-            allowBlank : true,
-            readOnly : true
+          xtype : 'displayfield',
+          fieldLabel : 'SVN Revision',
+          name : 'svnRevision',
+          anchor : Sonatype.view.FIELD_OFFSET_WITH_SCROLL,
+          allowBlank : true,
+          readOnly : true
+        },{
+          xtype : 'displayfield',
+          fieldLabel : 'Parent Pom',
+          name : 'parent',
+          anchor : Sonatype.view.FIELD_OFFSET_WITH_SCROLL,
+          allowBlank : true,
+          readOnly : true
         },{
             xtype : 'displayfield',
             fieldLabel : 'Build Profiles',
@@ -32,8 +39,9 @@ Sonatype.repoServer.DependencyManagementPanel = function (config) {
             allowBlank : true,
             readOnly : true
         },{
-            xtype : 'label',
+            xtype : 'displayfield',
             name : 'error',
+            fieldLabel : 'Error',
             anchor : Sonatype.view.FIELD_OFFSET_WITH_SCROLL,
             allowBlank : true,
             readOnly : true
@@ -62,9 +70,10 @@ Ext.extend(Sonatype.repoServer.DependencyManagementPanel, Ext.form.FormPanel, {
         var that =  this;
         this.data = data;
         if (data == null) {
-            this.find('name', 'error')[0].setText(null);
+            this.find('name', 'error')[0].setRawValue(null);
             this.find('name', 'buildProfiles')[0].setRawValue(null);
             this.find('name', 'svnRevision')[0].setRawValue(null);
+            this.find('name', 'parent')[0].setRawValue(null);
             this.find('name', 'buildUrl')[0].setRawValue(null);
             this.find('name', 'treePanel')[0].getRootNode().removeAll(true);
             this.find('name', 'treePanel')[0].getRootNode().setText(null);
@@ -76,21 +85,31 @@ Ext.extend(Sonatype.repoServer.DependencyManagementPanel, Ext.form.FormPanel, {
                 url : this.data.resourceURI + '?describe=depmgmt',
                 callback : function(options, isSuccess, response) {
                     if (isSuccess) {
-                        var resp = Ext.decode(response.responseText);
-
-                        if (resp.error != null) {
-                            that.find('name', 'error')[0].setText('<span class="error">' + resp.error + '</span>');
-                        } else {
+                      var resp = Ext.decode(response.responseText);
+                      var error = that.find('name', 'error')[0];
+                      if (resp.error != null) {
+                          error.show();
+                          error.setRawValue('<span class="error">' + resp.error + '</span>');
+                        } else if (response.responseText == "{}") {
+                          error.show();
+                          error.setRawValue('<span class="error">The request returned an empty response</span>');
+                        }
+                        else {
+                            error.hide();
                             var buildProfiles = that.find('name', 'buildProfiles')[0];
                             var svnRevision = that.find('name', 'svnRevision')[0];
                             var buildUrl = that.find('name', 'buildUrl')[0];
+                            var parent = that.find('name', 'parent')[0];
+
+                            var defaultText = '<span class="no-parent-pom">No parent pom</span>';
+                            parent.setRawValue(resp.parent == null ? defaultText : getParentPomInfo(resp.parent,resp.parentHighestReleaseVersion, resp.parentHighestSnapshotVersion));
+                            parent.show();
                             if (resp.artifact.snapshot) {
                                 buildProfiles.hide();
                                 svnRevision.hide();
                                 buildUrl.hide();
                             } else {
-                                var defaultText = '<span class="missing">Missing</span>';
-
+                                defaultText = '<span class="missing">Missing</span>';
                                 buildProfiles.setRawValue(resp.buildProfiles == null ? defaultText : resp.buildProfiles);
                                 svnRevision.setRawValue(resp.svnRevision == null ? defaultText : resp.svnRevision);
                                 buildUrl.setRawValue(resp.buildUrl == null ? defaultText : '<a href="' + resp.buildUrl + '" target="_blank">' + resp.buildUrl + '</a>');
@@ -105,8 +124,6 @@ Ext.extend(Sonatype.repoServer.DependencyManagementPanel, Ext.form.FormPanel, {
                                 fillRootTreeNode(rootNode, resp.artifact);
                                 appendChildren(rootNode, resp.artifact.dependencies);
                             }
-
-                            that.find('name', 'error')[0].setText(null);
                         }
                     } else {
                         if (response.status = 404) {
@@ -131,6 +148,27 @@ Ext.extend(Sonatype.repoServer.DependencyManagementPanel, Ext.form.FormPanel, {
     }
 
 });
+
+function getParentPomInfo(parentId, parentHighestReleaseVersion, parentHighestSnapshotVersion) {
+  var parentGav =  stringToGAV(parentId);
+  var text = '&nbsp;&nbsp;<span class="latest-snapshot">Latest Snapshot';
+  if (parentHighestSnapshotVersion != null) {
+    text = text + ': ' + parentHighestSnapshotVersion + '</span>';
+  } else {
+    text = text + '</span>';
+  }
+
+  text = text + '&nbsp;&nbsp;<span class="latest-release">Latest Release';
+  if (parentHighestReleaseVersion != null) {
+    text = text + ': ' + parentHighestReleaseVersion + '</span>';
+  } else {
+    text = text + '</span>';
+  }
+
+  var parentPomInfo = '<a href="index.html#nexus-search;gav~' + parentGav.groupId + '~' + parentGav.artifactId + '~' + parentGav.version + '~' + parentGav.packaging + '~~">'  + parentId + '</a>' + text;
+  return parentPomInfo;
+}
+
 
 function fillRootTreeNode(treeNode, artifact) {
     var text = artifact.groupId + ':' + artifact.artifactId + ':' + artifact.version;
@@ -201,6 +239,28 @@ function appendChildren(treeNode, dependencies) {
         treeNode.appendChild(subNode);
     }
     treeNode.expanded = expand;
+}
+// groupId:artifactId:packaging:version
+function stringToGAV(stringContainingGav) {
+  var gav = new Object();
+  var groupId = "";
+  var artifactId = "";
+  var packaging = "";
+  var version = "";
+  if(stringContainingGav != null &&  stringContainingGav.indexOf(":") != -1) {
+    var trailing = "";
+    groupId = stringContainingGav.substring(0, stringContainingGav.indexOf(":"));
+    trailing = stringContainingGav.substring(stringContainingGav.indexOf(":") + 1);
+    artifactId = trailing.substring(0, trailing.indexOf(":"));
+    trailing = trailing.substring(trailing.indexOf(":") + 1);
+    packaging = trailing.substring(0, trailing.indexOf(":"));
+    version = trailing.substring(trailing.indexOf(":") + 1);
+  }
+  gav.groupId = groupId;
+  gav.artifactId =  artifactId;
+  gav.packaging = packaging;
+  gav.version = version;
+  return gav;
 }
 
 Sonatype.Events.addListener("fileContainerInit", function (items) {

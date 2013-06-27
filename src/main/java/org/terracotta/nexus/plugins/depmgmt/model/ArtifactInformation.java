@@ -12,6 +12,9 @@ public class ArtifactInformation {
   private String svnRevision;
   private String buildProfiles;
   private Dependency artifact;
+  private String parent;
+  private String parentHighestReleaseVersion;
+  private String parentHighestSnapshotVersion;
 
   public ArtifactInformation() {
   }
@@ -66,5 +69,29 @@ public class ArtifactInformation {
 
   public void setArtifact(Dependency artifact) {
     this.artifact = artifact;
+  }
+
+  public String getParent() {
+    return parent;
+  }
+
+  public void setParent(String parent) {
+    this.parent = parent;
+  }
+
+  public void setParentHighestReleaseVersion(String parentHighestReleaseVersion) {
+    this.parentHighestReleaseVersion = parentHighestReleaseVersion;
+  }
+
+  public String getParentHighestReleaseVersion() {
+    return parentHighestReleaseVersion;
+  }
+
+  public void setParentHighestSnapshotVersion(String parentHighestSnapshotVersion) {
+    this.parentHighestSnapshotVersion = parentHighestSnapshotVersion;
+  }
+
+  public String getParentHighestSnapshotVersion() {
+    return parentHighestSnapshotVersion;
   }
 }
