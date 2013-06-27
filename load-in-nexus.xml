@@ -1,0 +1,19 @@
+<!--
+This file enables you to tell your nexus instance to load the plugins specified here
+Just add :
+nexus.xml-plugin-repository=/Users/anthony/workspaces/nexus/nexus-dependency-management-plugin/load-in-nexus.xml
+to conf/nexus.properties
+so that XmlNexusPluginRepository loads your plugin
+ -->
+
+<plugin-repository>
+     <artifacts>
+       <artifact>
+         <location>/Users/anthony/workspaces/nexus/nexus-dependency-management-plugin/target/classes</location>
+         <groupId>org.terracotta.nexus.plugins</groupId>
+         <artifactId>nexus-dependency-management-plugin</artifactId>
+         <version>1.1.0-SNAPSHOT</version>
+         <type>nexus-plugin</type>
+       </artifact>
+     </artifacts>
+</plugin-repository>
