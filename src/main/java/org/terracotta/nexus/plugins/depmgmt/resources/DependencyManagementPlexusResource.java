@@ -1,6 +1,5 @@
 package org.terracotta.nexus.plugins.depmgmt.resources;
 
-import org.apache.maven.model.Model;
 import org.codehaus.plexus.component.annotations.Component;
 import org.codehaus.plexus.component.annotations.Requirement;
 import org.restlet.data.Request;
