@@ -5,13 +5,19 @@ import org.codehaus.plexus.component.annotations.Requirement;
 import org.restlet.data.Request;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.sonatype.aether.RepositorySystemSession;
 import org.sonatype.aether.artifact.Artifact;
+import org.sonatype.aether.collection.CollectRequest;
+import org.sonatype.aether.collection.CollectResult;
+import org.sonatype.aether.collection.DependencyCollectionException;
 import org.sonatype.aether.graph.DependencyNode;
 import org.sonatype.aether.repository.RemoteRepository;
 import org.sonatype.aether.resolution.VersionRangeRequest;
 import org.sonatype.aether.resolution.VersionRangeResolutionException;
 import org.sonatype.aether.resolution.VersionRangeResult;
+import org.sonatype.aether.util.DefaultRepositorySystemSession;
 import org.sonatype.aether.util.artifact.DefaultArtifact;
+import org.sonatype.aether.util.graph.selector.ScopeDependencySelector;
 import org.sonatype.aether.version.Version;
 import org.sonatype.nexus.plugins.mavenbridge.NexusAether;
 import org.sonatype.nexus.plugins.mavenbridge.NexusMavenBridge;
@@ -23,13 +29,11 @@ import org.sonatype.nexus.proxy.item.StorageFileItem;
 import org.sonatype.nexus.proxy.item.StorageItem;
 import org.sonatype.nexus.proxy.maven.ArtifactStoreRequest;
 import org.sonatype.nexus.proxy.maven.MavenRepository;
-import org.sonatype.nexus.proxy.maven.RepositoryPolicy;
 import org.sonatype.nexus.proxy.maven.gav.Gav;
 import org.sonatype.nexus.proxy.registry.RepositoryRegistry;
-import org.sonatype.nexus.proxy.repository.HostedRepository;
-import org.sonatype.nexus.proxy.repository.Repository;
 import org.sonatype.nexus.rest.AbstractArtifactViewProvider;
 import org.sonatype.nexus.rest.ArtifactViewProvider;
+import org.sonatype.plexus.rest.ReferenceFactory;
 import org.terracotta.nexus.plugins.depmgmt.model.ArtifactInformation;
 import org.terracotta.nexus.plugins.depmgmt.model.Dependency;
 import org.terracotta.nexus.plugins.depmgmt.utils.ExceptionUtils;
@@ -37,6 +41,7 @@ import org.terracotta.nexus.plugins.depmgmt.utils.ExceptionUtils;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 
@@ -57,23 +62,32 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
   @Requirement
   private NexusAether nexusAether;
 
+  @Requirement
+  private ReferenceFactory referenceFactory;
+
   @Override
   protected Object retrieveView(ResourceStoreRequest request, RepositoryItemUid itemUid, StorageItem item, Request req) throws IOException {
     try {
+      LOGGER.info("Starting dependency resolution");
       MavenRepository itemRepository = itemUid.getRepository().adaptToFacet(MavenRepository.class);
       Gav gav = itemRepository.getGavCalculator().pathToGav(itemUid.getPath());
       StorageFileItem pom = itemRepository.getArtifactStoreHelper().retrieveArtifactPom(new ArtifactStoreRequest(itemRepository, gav, true));
 
-      DependencyNode dependencyNode = nexusMavenBridge.collectDependencies(Utils.createDependencyFromGav(gav, "compile"), repositories());
-      Dependency rootDep = buildDependencies(dependencyNode, gav.isSnapshot());
+      org.sonatype.aether.graph.Dependency dependency = Utils.createDependencyFromGav(gav, "compile");
 
+      RemoteRepository remoteRepository = exposePublicAsRemoteRepository(req);
+
+      DependencyNode dependencyNode = resolveDirectDependencies(dependency, remoteRepository);
+      Dependency rootDep = buildDependencies(dependencyNode, gav.isSnapshot(), remoteRepository);
+
+      LOGGER.info("Done building dependencies");
       /*
       WTF? I get:
       java.lang.LinkageError: loader constraint violation: loader (instance of org/codehaus/plexus/classworlds/realm/ClassRealm) previously initiated loading for a different type with name "org/apache/maven/model/Model"
       when I try to make the call without using reflection (ie: when I declare class Model):
       //Properties properties = model.getProperties();
        */
-      Object model = nexusMavenBridge.buildModel(new FileItemModelSource(pom), repositories());
+      Object model = nexusMavenBridge.buildModel(new FileItemModelSource(pom), getMavenRepositories());
       Properties properties = (Properties)model.getClass().getMethod("getProperties").invoke(model);
       Object parent = model.getClass().getMethod("getParent").invoke(model);
       ArtifactInformation artifactInformation = new ArtifactInformation();
@@ -82,8 +96,8 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
         String id = (String) parent.getClass().getMethod("getId").invoke(parent);
         artifactInformation.setParent(id);
         DefaultArtifact parentArtifact = new DefaultArtifact(id);
-        String parentHighestReleaseVersion =  getHighestVersion(parentArtifact,true);
-        String parentHighestSnapshotVersion =  getHighestVersion(parentArtifact,false);
+        String parentHighestReleaseVersion =  getHighestVersion(parentArtifact,true, remoteRepository);
+        String parentHighestSnapshotVersion =  getHighestVersion(parentArtifact,false, remoteRepository);
         artifactInformation.setParentHighestReleaseVersion(parentHighestReleaseVersion);
         artifactInformation.setParentHighestSnapshotVersion(parentHighestSnapshotVersion);
       }
@@ -98,27 +112,50 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
     } catch (Exception e) {
       Throwable rootCause = ExceptionUtils.getRootCause(e);
       return new ArtifactInformation(rootCause.getMessage() != null ? rootCause.getMessage() : rootCause.getClass().toString());
+    } finally {
+      LOGGER.info("Done extracting POM information");
     }
   }
 
-  private Dependency buildDependencies(DependencyNode parentNode, boolean snapshot) {
+  private RemoteRepository exposePublicAsRemoteRepository(Request req) {
+    String publicURL = referenceFactory.createReference(referenceFactory.getContextRoot(req), "content/groups/public").toString();
+    return new RemoteRepository("public", "default", publicURL);
+  }
+
+  private DependencyNode resolveDirectDependencies(org.sonatype.aether.graph.Dependency dependency, RemoteRepository remoteRepository) {
+    DependencyNode dependencyNode = null;
+
+    CollectRequest collectRequest = new CollectRequest();
+    collectRequest.setRoot(dependency);
+    collectRequest.addRepository(remoteRepository);
+    try {
+      CollectResult collectResult = nexusAether.getRepositorySystem()
+          .collectDependencies(getRepositorySystemSession(), collectRequest);
+      dependencyNode = collectResult.getRoot();
+    } catch (DependencyCollectionException e) {
+      LOGGER.error("Exception collecting deps", e);
+    }
+    return dependencyNode;
+  }
+
+  private Dependency buildDependencies(DependencyNode parentNode, boolean snapshot, RemoteRepository remoteRepository) {
     Dependency parent = new Dependency(parentNode.getDependency().getArtifact());
-    addLatestVersionInfo(parent, parentNode.getDependency().getArtifact(), false);
+    addLatestVersionInfo(parent, parentNode.getDependency().getArtifact(), false, remoteRepository);
     // if the artifact is not a snapshot, don't bother adding version info to its deps
-    buildDependencies(parent, parentNode.getChildren(), snapshot);
+    buildDependencies(parent, parentNode.getChildren(), snapshot, remoteRepository);
     return parent;
   }
 
-  private void buildDependencies(Dependency parent, List<DependencyNode> children, boolean addVersionInfo) {
+  private void buildDependencies(Dependency parent, List<DependencyNode> children, boolean addVersionInfo, RemoteRepository remoteRepository) {
     Collection<Dependency> result = new ArrayList<Dependency>();
 
     for (DependencyNode child : children) {
       Artifact artifact = child.getDependency().getArtifact();
       Dependency childDep = new Dependency(artifact);
-      buildDependencies(childDep, child.getChildren(), addVersionInfo);
+      buildDependencies(childDep, child.getChildren(), addVersionInfo, remoteRepository);
       // TODO : remove TC specific conditions
       if (addVersionInfo && parent.isTerracottaMaintained()) {
-        addLatestVersionInfo(childDep, artifact, true);
+        addLatestVersionInfo(childDep, artifact, true, remoteRepository);
       }
       result.add(childDep);
     }
@@ -126,7 +163,7 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
     parent.setDependencies(result.toArray(new Dependency[] { }));
   }
 
-  private void addLatestVersionInfo(Dependency dependency, Artifact artifact, boolean releaseOnly) {
+  private void addLatestVersionInfo(Dependency dependency, Artifact artifact, boolean releaseOnly, RemoteRepository remoteRepository) {
     LOGGER.debug("Version range request for {}", artifact);
     // TODO : remove TC specific conditions
     if (!dependency.isTerracottaMaintained()) {
@@ -134,29 +171,27 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
     }
 
     if (!releaseOnly) {
-      String highestVersionString = getHighestVersion(artifact, false);
+      String highestVersionString = getHighestVersion(artifact, false, remoteRepository);
       dependency.setLatestReleaseVersion(highestVersionString);
     }
 
-    String highestVersionString = getHighestVersion(artifact, true);
+    String highestVersionString = getHighestVersion(artifact, true, remoteRepository);
     dependency.setLatestReleaseVersion(highestVersionString);
   }
 
   /**
    *
+   *
    * @param artifact
    * @param release : true for getting highest released version, false for highest snapshot version
+   * @param remoteRepository
    * @return
    */
-  private String getHighestVersion(Artifact artifact, boolean release) {
+  private String getHighestVersion(Artifact artifact, boolean release, RemoteRepository remoteRepository) {
     try {
       VersionRangeRequest request = new VersionRangeRequest();
       request.setArtifact(new DefaultArtifact(artifact.getGroupId(), artifact.getArtifactId(), artifact.getExtension(), "[,]"));
-      if (release) {
-        request.setRepositories(getRemoteRepositories(RepositoryPolicy.RELEASE));
-      } else {
-        request.setRepositories(getRemoteRepositories(RepositoryPolicy.SNAPSHOT));
-      }
+      request.setRepositories(Collections.singletonList(remoteRepository));
 
       VersionRangeResult versionRangeResult = nexusAether.getRepositorySystem().resolveVersionRange(nexusAether.getDefaultRepositorySystemSession(), request);
       LOGGER.debug("Version range result: {} with possible exceptions: {} for {}", versionRangeResult.getVersions(), versionRangeResult.getExceptions(), artifact);
@@ -171,32 +206,15 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
     return null;
   }
 
-  private List<RemoteRepository> getRemoteRepositories(RepositoryPolicy policy) {
-    List<RemoteRepository> remoteRepositories = new ArrayList<RemoteRepository>();
-    for (MavenRepository mavenRepository : repositoryRegistry.getRepositoriesWithFacet(MavenRepository.class)) {
-      if (policy.equals(mavenRepository.getRepositoryPolicy()) && mavenRepository.getRepositoryKind().isFacetAvailable(HostedRepository.class)) {
-        String url = mavenRepository.getLocalUrl();
-        if (!url.startsWith("http")) {
-          LOGGER.debug("Adding repository {} ({})", mavenRepository.getId(), url);
-          remoteRepositories.add(new RemoteRepository(mavenRepository.getId(), "default", url));
-        } else {
-          LOGGER.warn("Repository {} with policy {} identifies as \"Hosted\" but local URL is {}", mavenRepository.getId(), policy, url);
-        }
-      } else {
-        LOGGER.debug("Ignoring repository {}", mavenRepository.getId());
-      }
-    }
-    return remoteRepositories;
+  private List<MavenRepository> getMavenRepositories() {
+    return repositoryRegistry.getRepositoriesWithFacet(MavenRepository.class);
   }
 
-  private List<MavenRepository> repositories() {
-    List<MavenRepository> result = new ArrayList<MavenRepository>();
-    List<Repository> repositories = repositoryRegistry.getRepositories();
-    for (Repository repository : repositories) {
-      MavenRepository mr = repository.adaptToFacet(MavenRepository.class);
-      result.add(mr);
-    }
-    return result;
+  private RepositorySystemSession getRepositorySystemSession() {
+    DefaultRepositorySystemSession repositorySystemSession = new DefaultRepositorySystemSession(nexusAether.getDefaultRepositorySystemSession());
+    repositorySystemSession.setDependencySelector(new ScopeDependencySelector());
+    repositorySystemSession.setDependencyTraverser(new DepthLimitedDependencyTraverser(1));
+    return repositorySystemSession;
   }
 
 }
