@@ -84,46 +84,48 @@ Ext.extend(Sonatype.repoServer.DependencyManagementPanel, Ext.form.FormPanel, {
                 url : this.data.resourceURI + '?describe=depmgmt',
                 callback : function(options, isSuccess, response) {
                     if (isSuccess) {
-                      artifactContainer.showTab(this);
+                        artifactContainer.showTab(this);
 
-                      var resp = Ext.decode(response.responseText);
-                      var error = that.find('name', 'error')[0];
-                      if (resp.error != null) {
-                          error.show();
-                          error.setRawValue('<span class="error">' + resp.error + '</span>');
-                        } else if (response.responseText == "{}") {
-                          error.show();
-                          error.setRawValue('<span class="error">The request returned an empty response</span>');
-                        }
-                        else {
-                            error.hide();
-                            var buildProfiles = that.find('name', 'buildProfiles')[0];
-                            var svnRevision = that.find('name', 'svnRevision')[0];
-                            var buildUrl = that.find('name', 'buildUrl')[0];
-                            var parent = that.find('name', 'parent')[0];
-
-                            var defaultText = '<span class="no-parent-pom">No parent pom</span>';
-                            parent.setRawValue(resp.parent == null ? defaultText : getParentPomInfo(resp.parent,resp.parentHighestReleaseVersion, resp.parentHighestSnapshotVersion));
-                            parent.show();
-                            if (resp.artifact.snapshot) {
-                                buildProfiles.hide();
-                                svnRevision.hide();
-                                buildUrl.hide();
-                            } else {
-                                defaultText = '<span class="missing">Missing</span>';
-                                buildProfiles.setRawValue(resp.buildProfiles == null ? defaultText : resp.buildProfiles);
-                                svnRevision.setRawValue(resp.svnRevision == null ? defaultText : resp.svnRevision);
-                                buildUrl.setRawValue(resp.buildUrl == null ? defaultText : '<a href="' + resp.buildUrl + '" target="_blank">' + resp.buildUrl + '</a>');
-                                buildProfiles.show();
-                                svnRevision.show();
-                                buildUrl.show();
+                        var resp = Ext.decode(response.responseText);
+                        var error = that.find('name', 'error')[0];
+                        if (answerMatchRequest(that.data, resp)) {
+                            if (resp.error != null) {
+                                error.show();
+                                error.setRawValue('<span class="error">' + resp.error + '</span>');
+                            } else if (response.responseText == "{}") {
+                                error.show();
+                                error.setRawValue('<span class="error">The request returned an empty response</span>');
                             }
+                            else {
+                                error.hide();
+                                var buildProfiles = that.find('name', 'buildProfiles')[0];
+                                var svnRevision = that.find('name', 'svnRevision')[0];
+                                var buildUrl = that.find('name', 'buildUrl')[0];
+                                var parent = that.find('name', 'parent')[0];
 
-                            that.find('name', 'treePanel')[0].getRootNode().removeAll(true);
-                            if (resp.artifact != null) {
-                                var rootNode = that.find('name', 'treePanel')[0].getRootNode();
-                                fillRootTreeNode(rootNode, resp.artifact);
-                                appendChildren(rootNode, resp.artifact.dependencies);
+                                var defaultText = '<span class="no-parent-pom">No parent pom</span>';
+                                parent.setRawValue(resp.parent == null ? defaultText : getParentPomInfo(resp.parent, resp.parentHighestReleaseVersion, resp.parentHighestSnapshotVersion));
+                                parent.show();
+                                if (resp.artifact.snapshot) {
+                                    buildProfiles.hide();
+                                    svnRevision.hide();
+                                    buildUrl.hide();
+                                } else {
+                                    defaultText = '<span class="missing">Missing</span>';
+                                    buildProfiles.setRawValue(resp.buildProfiles == null ? defaultText : resp.buildProfiles);
+                                    svnRevision.setRawValue(resp.svnRevision == null ? defaultText : resp.svnRevision);
+                                    buildUrl.setRawValue(resp.buildUrl == null ? defaultText : '<a href="' + resp.buildUrl + '" target="_blank">' + resp.buildUrl + '</a>');
+                                    buildProfiles.show();
+                                    svnRevision.show();
+                                    buildUrl.show();
+                                }
+
+                                that.find('name', 'treePanel')[0].getRootNode().removeAll(true);
+                                if (resp.artifact != null) {
+                                    var rootNode = that.find('name', 'treePanel')[0].getRootNode();
+                                    fillRootTreeNode(rootNode, resp.artifact);
+                                    appendChildren(rootNode, resp.artifact.dependencies);
+                                }
                             }
                         }
                     } else {
@@ -149,6 +151,12 @@ Ext.extend(Sonatype.repoServer.DependencyManagementPanel, Ext.form.FormPanel, {
     }
 
 });
+
+function answerMatchRequest(data, resp) {
+    return (data.artifactId == resp.artifact.artifactId
+        && data.groupId == resp.artifact.groupId
+        && data.version == resp.artifact.version);
+}
 
 function getParentPomInfo(parentId, parentHighestReleaseVersion, parentHighestSnapshotVersion) {
   var parentGav =  stringToGAV(parentId);
