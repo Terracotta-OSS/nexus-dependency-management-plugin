@@ -79,12 +79,13 @@ Ext.extend(Sonatype.repoServer.DependencyManagementPanel, Ext.form.FormPanel, {
             this.find('name', 'treePanel')[0].getRootNode().setText(null);
             this.find('name', 'treePanel')[0].getRootNode().setIcon(null);
         } else {
-            var resourceURI = this.data.resourceURI;
 
             Ext.Ajax.request({
                 url : this.data.resourceURI + '?describe=depmgmt',
                 callback : function(options, isSuccess, response) {
                     if (isSuccess) {
+                      artifactContainer.showTab(this);
+
                       var resp = Ext.decode(response.responseText);
                       var error = that.find('name', 'error')[0];
                       if (resp.error != null) {
