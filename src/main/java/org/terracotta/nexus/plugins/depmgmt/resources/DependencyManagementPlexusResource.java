@@ -10,6 +10,7 @@ import org.sonatype.aether.artifact.Artifact;
 import org.sonatype.aether.collection.CollectRequest;
 import org.sonatype.aether.collection.CollectResult;
 import org.sonatype.aether.collection.DependencyCollectionException;
+import org.sonatype.aether.graph.Dependency;
 import org.sonatype.aether.graph.DependencyNode;
 import org.sonatype.aether.repository.RemoteRepository;
 import org.sonatype.aether.resolution.VersionRangeRequest;
@@ -21,7 +22,6 @@ import org.sonatype.aether.util.graph.selector.ScopeDependencySelector;
 import org.sonatype.aether.version.Version;
 import org.sonatype.nexus.plugins.mavenbridge.NexusAether;
 import org.sonatype.nexus.plugins.mavenbridge.NexusMavenBridge;
-import org.sonatype.nexus.plugins.mavenbridge.Utils;
 import org.sonatype.nexus.plugins.mavenbridge.internal.FileItemModelSource;
 import org.sonatype.nexus.proxy.ResourceStoreRequest;
 import org.sonatype.nexus.proxy.item.RepositoryItemUid;
@@ -35,7 +35,7 @@ import org.sonatype.nexus.rest.AbstractArtifactViewProvider;
 import org.sonatype.nexus.rest.ArtifactViewProvider;
 import org.sonatype.plexus.rest.ReferenceFactory;
 import org.terracotta.nexus.plugins.depmgmt.model.ArtifactInformation;
-import org.terracotta.nexus.plugins.depmgmt.model.Dependency;
+import org.terracotta.nexus.plugins.depmgmt.model.DependencyInformation;
 import org.terracotta.nexus.plugins.depmgmt.utils.ExceptionUtils;
 
 import java.io.IOException;
@@ -73,12 +73,12 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
       Gav gav = itemRepository.getGavCalculator().pathToGav(itemUid.getPath());
       StorageFileItem pom = itemRepository.getArtifactStoreHelper().retrieveArtifactPom(new ArtifactStoreRequest(itemRepository, gav, true));
 
-      org.sonatype.aether.graph.Dependency dependency = Utils.createDependencyFromGav(gav, "compile");
+      Dependency dependency = createDependencyFromGav(gav);
 
       RemoteRepository remoteRepository = exposePublicAsRemoteRepository(req);
 
       DependencyNode dependencyNode = resolveDirectDependencies(dependency, remoteRepository);
-      Dependency rootDep = buildDependencies(dependencyNode, gav.isSnapshot(), remoteRepository);
+      DependencyInformation rootDep = buildDependencies(dependencyNode, gav.isSnapshot(), remoteRepository);
 
       LOGGER.info("Done building dependencies");
       /*
@@ -117,6 +117,13 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
     }
   }
 
+  private org.sonatype.aether.graph.Dependency createDependencyFromGav(Gav gav) {
+    return new Dependency(
+        new DefaultArtifact( gav.getGroupId(), gav.getArtifactId(), gav.getExtension(), gav.getBaseVersion()),
+        "compile");
+
+  }
+
   private RemoteRepository exposePublicAsRemoteRepository(Request req) {
     String publicURL = referenceFactory.createReference(referenceFactory.getContextRoot(req), "content/groups/public").toString();
     return new RemoteRepository("public", "default", publicURL);
@@ -138,20 +145,20 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
     return dependencyNode;
   }
 
-  private Dependency buildDependencies(DependencyNode parentNode, boolean snapshot, RemoteRepository remoteRepository) {
-    Dependency parent = new Dependency(parentNode.getDependency().getArtifact());
+  private DependencyInformation buildDependencies(DependencyNode parentNode, boolean snapshot, RemoteRepository remoteRepository) {
+    DependencyInformation parent = new DependencyInformation(parentNode.getDependency().getArtifact());
     addLatestVersionInfo(parent, parentNode.getDependency().getArtifact(), false, remoteRepository);
     // if the artifact is not a snapshot, don't bother adding version info to its deps
     buildDependencies(parent, parentNode.getChildren(), snapshot, remoteRepository);
     return parent;
   }
 
-  private void buildDependencies(Dependency parent, List<DependencyNode> children, boolean addVersionInfo, RemoteRepository remoteRepository) {
-    Collection<Dependency> result = new ArrayList<Dependency>();
+  private void buildDependencies(DependencyInformation parent, List<DependencyNode> children, boolean addVersionInfo, RemoteRepository remoteRepository) {
+    Collection<DependencyInformation> result = new ArrayList<DependencyInformation>();
 
     for (DependencyNode child : children) {
       Artifact artifact = child.getDependency().getArtifact();
-      Dependency childDep = new Dependency(artifact);
+      DependencyInformation childDep = new DependencyInformation(artifact);
       buildDependencies(childDep, child.getChildren(), addVersionInfo, remoteRepository);
       // TODO : remove TC specific conditions
       if (addVersionInfo && parent.isTerracottaMaintained()) {
@@ -160,23 +167,23 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
       result.add(childDep);
     }
 
-    parent.setDependencies(result.toArray(new Dependency[] { }));
+    parent.setDependencies(result.toArray(new DependencyInformation[] { }));
   }
 
-  private void addLatestVersionInfo(Dependency dependency, Artifact artifact, boolean releaseOnly, RemoteRepository remoteRepository) {
+  private void addLatestVersionInfo(DependencyInformation dependencyInformation, Artifact artifact, boolean releaseOnly, RemoteRepository remoteRepository) {
     LOGGER.debug("Version range request for {}", artifact);
     // TODO : remove TC specific conditions
-    if (!dependency.isTerracottaMaintained()) {
+    if (!dependencyInformation.isTerracottaMaintained()) {
       return;
     }
 
     if (!releaseOnly) {
       String highestVersionString = getHighestVersion(artifact, false, remoteRepository);
-      dependency.setLatestReleaseVersion(highestVersionString);
+      dependencyInformation.setLatestReleaseVersion(highestVersionString);
     }
 
     String highestVersionString = getHighestVersion(artifact, true, remoteRepository);
-    dependency.setLatestReleaseVersion(highestVersionString);
+    dependencyInformation.setLatestReleaseVersion(highestVersionString);
   }
 
   /**

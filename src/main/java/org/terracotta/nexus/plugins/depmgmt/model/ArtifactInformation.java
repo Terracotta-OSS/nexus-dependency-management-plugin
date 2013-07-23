@@ -11,7 +11,7 @@ public class ArtifactInformation {
   private String buildUrl;
   private String svnRevision;
   private String buildProfiles;
-  private Dependency artifact;
+  private DependencyInformation artifact;
   private String parent;
   private String parentHighestReleaseVersion;
   private String parentHighestSnapshotVersion;
@@ -63,11 +63,11 @@ public class ArtifactInformation {
     this.buildProfiles = buildProfiles;
   }
 
-  public Dependency getArtifact() {
+  public DependencyInformation getArtifact() {
     return artifact;
   }
 
-  public void setArtifact(Dependency artifact) {
+  public void setArtifact(DependencyInformation artifact) {
     this.artifact = artifact;
   }
 

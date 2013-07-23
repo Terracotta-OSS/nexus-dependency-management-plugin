@@ -5,21 +5,21 @@ import org.sonatype.aether.artifact.Artifact;
 /**
  * @author Ludovic Orban
  */
-public class Dependency {
+public class DependencyInformation {
 
   private String groupId;
   private String artifactId;
   private String version;
   private boolean snapshot;
   private boolean terracottaMaintained;
-  private Dependency[] dependencies;
+  private DependencyInformation[] dependencies;
   private String latestReleaseVersion;
   private String latestSnapshotVersion;
 
-  public Dependency() {
+  public DependencyInformation() {
   }
 
-  public Dependency(Artifact artifact) {
+  public DependencyInformation(Artifact artifact) {
     this.groupId = artifact.getGroupId();
     this.artifactId = artifact.getArtifactId();
     this.version = artifact.getVersion();
@@ -69,11 +69,11 @@ public class Dependency {
     this.terracottaMaintained = terracottaMaintained;
   }
 
-  public Dependency[] getDependencies() {
+  public DependencyInformation[] getDependencies() {
     return dependencies;
   }
 
-  public void setDependencies(Dependency[] dependencies) {
+  public void setDependencies(DependencyInformation[] dependencies) {
     this.dependencies = dependencies;
   }
 
