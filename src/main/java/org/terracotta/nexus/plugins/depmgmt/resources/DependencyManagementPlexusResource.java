@@ -24,7 +24,6 @@ import org.sonatype.nexus.configuration.application.GlobalRestApiSettings;
 import org.sonatype.nexus.plugins.mavenbridge.NexusAether;
 import org.sonatype.nexus.plugins.mavenbridge.NexusMavenBridge;
 import org.sonatype.nexus.plugins.mavenbridge.internal.FileItemModelSource;
-import org.sonatype.nexus.proxy.NoSuchRepositoryException;
 import org.sonatype.nexus.proxy.ResourceStoreRequest;
 import org.sonatype.nexus.proxy.item.RepositoryItemUid;
 import org.sonatype.nexus.proxy.item.StorageFileItem;
@@ -35,7 +34,6 @@ import org.sonatype.nexus.proxy.maven.gav.Gav;
 import org.sonatype.nexus.proxy.registry.RepositoryRegistry;
 import org.sonatype.nexus.rest.AbstractArtifactViewProvider;
 import org.sonatype.nexus.rest.ArtifactViewProvider;
-import org.sonatype.nexus.rest.RepositoryURLBuilder;
 import org.terracotta.nexus.plugins.depmgmt.model.ArtifactInformation;
 import org.terracotta.nexus.plugins.depmgmt.model.DependencyInformation;
 import org.terracotta.nexus.plugins.depmgmt.utils.ExceptionUtils;
@@ -45,6 +43,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Properties;
 
 /**
@@ -96,8 +95,8 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
         String id = (String) parent.getClass().getMethod("getId").invoke(parent);
         artifactInformation.setParent(id);
         DefaultArtifact parentArtifact = new DefaultArtifact(id);
-        String parentHighestReleaseVersion =  getHighestVersion(parentArtifact);
-        String parentHighestSnapshotVersion =  getHighestVersion(parentArtifact);
+        String parentHighestReleaseVersion =  getHighestVersion(parentArtifact, true);
+        String parentHighestSnapshotVersion =  getHighestVersion(parentArtifact, false);
         artifactInformation.setParentHighestReleaseVersion(parentHighestReleaseVersion);
         artifactInformation.setParentHighestSnapshotVersion(parentHighestSnapshotVersion);
       }
@@ -110,6 +109,7 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
 
       return artifactInformation;
     } catch (Exception e) {
+      LOGGER.error("Got exception in depmgmt plugin", e);
       Throwable rootCause = ExceptionUtils.getRootCause(e);
       return new ArtifactInformation(rootCause.getMessage() != null ? rootCause.getMessage() : rootCause.getClass().toString());
     } finally {
@@ -188,15 +188,15 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
     }
 
     if (!releaseOnly) {
-      String highestVersionString = getHighestVersion(artifact);
-      dependencyInformation.setLatestReleaseVersion(highestVersionString);
+      String highestVersionString = getHighestVersion(artifact, false);
+      dependencyInformation.setLatestSnapshotVersion(highestVersionString);
     }
 
-    String highestVersionString = getHighestVersion(artifact);
+    String highestVersionString = getHighestVersion(artifact, true);
     dependencyInformation.setLatestReleaseVersion(highestVersionString);
   }
 
-  private String getHighestVersion(Artifact artifact) {
+  private String getHighestVersion(Artifact artifact, boolean release) {
     try {
       VersionRangeRequest request = new VersionRangeRequest();
       request.setArtifact(new DefaultArtifact(artifact.getGroupId(), artifact.getArtifactId(), artifact.getExtension(), "[,]"));
@@ -204,10 +204,17 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
 
       VersionRangeResult versionRangeResult = nexusAether.getRepositorySystem().resolveVersionRange(nexusAether.getDefaultRepositorySystemSession(), request);
       LOGGER.debug("Version range result: {} with possible exceptions: {} for {}", versionRangeResult.getVersions(), versionRangeResult.getExceptions(), artifact);
-      Version highestVersion = versionRangeResult.getHighestVersion();
-      if (highestVersion != null && !artifact.getBaseVersion().equals(highestVersion.toString())) {
-        LOGGER.debug("Setting latest version to {} for {}", highestVersion, artifact);
-        return highestVersion.toString();
+      ListIterator<Version> versionListIterator = versionRangeResult.getVersions().listIterator(versionRangeResult.getVersions().size());
+      while (versionListIterator.hasPrevious()) {
+        Version highestVersion = versionListIterator.previous();
+        if ((!release && highestVersion.toString().endsWith("SNAPSHOT")) || (release && !highestVersion.toString().endsWith("SNAPSHOT"))) {
+          if (!artifact.getBaseVersion().equals(highestVersion.toString())) {
+            LOGGER.debug("Setting latest version to {} for {}", highestVersion, artifact);
+            return highestVersion.toString();
+          } else {
+            return null;
+          }
+        }
       }
     } catch (VersionRangeResolutionException e) {
       LOGGER.error("Unable to resolve version range", e);
