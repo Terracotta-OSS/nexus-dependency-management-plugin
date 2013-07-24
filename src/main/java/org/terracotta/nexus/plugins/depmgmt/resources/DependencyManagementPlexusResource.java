@@ -23,6 +23,7 @@ import org.sonatype.aether.version.Version;
 import org.sonatype.nexus.plugins.mavenbridge.NexusAether;
 import org.sonatype.nexus.plugins.mavenbridge.NexusMavenBridge;
 import org.sonatype.nexus.plugins.mavenbridge.internal.FileItemModelSource;
+import org.sonatype.nexus.proxy.NoSuchRepositoryException;
 import org.sonatype.nexus.proxy.ResourceStoreRequest;
 import org.sonatype.nexus.proxy.item.RepositoryItemUid;
 import org.sonatype.nexus.proxy.item.StorageFileItem;
@@ -33,7 +34,7 @@ import org.sonatype.nexus.proxy.maven.gav.Gav;
 import org.sonatype.nexus.proxy.registry.RepositoryRegistry;
 import org.sonatype.nexus.rest.AbstractArtifactViewProvider;
 import org.sonatype.nexus.rest.ArtifactViewProvider;
-import org.sonatype.plexus.rest.ReferenceFactory;
+import org.sonatype.nexus.rest.RepositoryURLBuilder;
 import org.terracotta.nexus.plugins.depmgmt.model.ArtifactInformation;
 import org.terracotta.nexus.plugins.depmgmt.model.DependencyInformation;
 import org.terracotta.nexus.plugins.depmgmt.utils.ExceptionUtils;
@@ -63,7 +64,7 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
   private NexusAether nexusAether;
 
   @Requirement
-  private ReferenceFactory referenceFactory;
+  private RepositoryURLBuilder repositoryURLBuilder;
 
   @Override
   protected Object retrieveView(ResourceStoreRequest request, RepositoryItemUid itemUid, StorageItem item, Request req) throws IOException {
@@ -75,10 +76,8 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
 
       Dependency dependency = createDependencyFromGav(gav);
 
-      RemoteRepository remoteRepository = exposePublicAsRemoteRepository(req);
-
-      DependencyNode dependencyNode = resolveDirectDependencies(dependency, remoteRepository);
-      DependencyInformation rootDep = buildDependencies(dependencyNode, gav.isSnapshot(), remoteRepository);
+      DependencyNode dependencyNode = resolveDirectDependencies(dependency);
+      DependencyInformation rootDep = buildDependencies(dependencyNode, gav.isSnapshot());
 
       LOGGER.info("Done building dependencies");
       /*
@@ -96,8 +95,8 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
         String id = (String) parent.getClass().getMethod("getId").invoke(parent);
         artifactInformation.setParent(id);
         DefaultArtifact parentArtifact = new DefaultArtifact(id);
-        String parentHighestReleaseVersion =  getHighestVersion(parentArtifact,true, remoteRepository);
-        String parentHighestSnapshotVersion =  getHighestVersion(parentArtifact,false, remoteRepository);
+        String parentHighestReleaseVersion =  getHighestVersion(parentArtifact);
+        String parentHighestSnapshotVersion =  getHighestVersion(parentArtifact);
         artifactInformation.setParentHighestReleaseVersion(parentHighestReleaseVersion);
         artifactInformation.setParentHighestSnapshotVersion(parentHighestSnapshotVersion);
       }
@@ -124,17 +123,26 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
 
   }
 
-  private RemoteRepository exposePublicAsRemoteRepository(Request req) {
-    String publicURL = referenceFactory.createReference(referenceFactory.getContextRoot(req), "content/groups/public").toString();
-    return new RemoteRepository("public", "default", publicURL);
+  private RemoteRepository exposePublicAsRemoteRepository() {
+    String repositoryContentUrl = null;
+    try {
+      repositoryContentUrl = repositoryURLBuilder.getRepositoryContentUrl("public");
+    } catch (NoSuchRepositoryException e) {
+      throw new IllegalStateException("This Nexus instance does not have a \"public\" repository");
+    }
+    if (repositoryContentUrl == null) {
+      throw new IllegalStateException("Unable to get URL for public repository");
+    }
+    LOGGER.info("Repository URL resolved to {}", repositoryContentUrl);
+    return new RemoteRepository("public", "default", repositoryContentUrl);
   }
 
-  private DependencyNode resolveDirectDependencies(org.sonatype.aether.graph.Dependency dependency, RemoteRepository remoteRepository) {
+  private DependencyNode resolveDirectDependencies(Dependency dependency) {
     DependencyNode dependencyNode = null;
 
     CollectRequest collectRequest = new CollectRequest();
     collectRequest.setRoot(dependency);
-    collectRequest.addRepository(remoteRepository);
+    collectRequest.addRepository(exposePublicAsRemoteRepository());
     try {
       CollectResult collectResult = nexusAether.getRepositorySystem()
           .collectDependencies(getRepositorySystemSession(), collectRequest);
@@ -145,24 +153,24 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
     return dependencyNode;
   }
 
-  private DependencyInformation buildDependencies(DependencyNode parentNode, boolean snapshot, RemoteRepository remoteRepository) {
+  private DependencyInformation buildDependencies(DependencyNode parentNode, boolean snapshot) {
     DependencyInformation parent = new DependencyInformation(parentNode.getDependency().getArtifact());
-    addLatestVersionInfo(parent, parentNode.getDependency().getArtifact(), false, remoteRepository);
+    addLatestVersionInfo(parent, parentNode.getDependency().getArtifact(), false);
     // if the artifact is not a snapshot, don't bother adding version info to its deps
-    buildDependencies(parent, parentNode.getChildren(), snapshot, remoteRepository);
+    buildDependencies(parent, parentNode.getChildren(), snapshot);
     return parent;
   }
 
-  private void buildDependencies(DependencyInformation parent, List<DependencyNode> children, boolean addVersionInfo, RemoteRepository remoteRepository) {
+  private void buildDependencies(DependencyInformation parent, List<DependencyNode> children, boolean addVersionInfo) {
     Collection<DependencyInformation> result = new ArrayList<DependencyInformation>();
 
     for (DependencyNode child : children) {
       Artifact artifact = child.getDependency().getArtifact();
       DependencyInformation childDep = new DependencyInformation(artifact);
-      buildDependencies(childDep, child.getChildren(), addVersionInfo, remoteRepository);
+      buildDependencies(childDep, child.getChildren(), addVersionInfo);
       // TODO : remove TC specific conditions
       if (addVersionInfo && parent.isTerracottaMaintained()) {
-        addLatestVersionInfo(childDep, artifact, true, remoteRepository);
+        addLatestVersionInfo(childDep, artifact, true);
       }
       result.add(childDep);
     }
@@ -170,7 +178,7 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
     parent.setDependencies(result.toArray(new DependencyInformation[] { }));
   }
 
-  private void addLatestVersionInfo(DependencyInformation dependencyInformation, Artifact artifact, boolean releaseOnly, RemoteRepository remoteRepository) {
+  private void addLatestVersionInfo(DependencyInformation dependencyInformation, Artifact artifact, boolean releaseOnly) {
     LOGGER.debug("Version range request for {}", artifact);
     // TODO : remove TC specific conditions
     if (!dependencyInformation.isTerracottaMaintained()) {
@@ -178,27 +186,19 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
     }
 
     if (!releaseOnly) {
-      String highestVersionString = getHighestVersion(artifact, false, remoteRepository);
+      String highestVersionString = getHighestVersion(artifact);
       dependencyInformation.setLatestReleaseVersion(highestVersionString);
     }
 
-    String highestVersionString = getHighestVersion(artifact, true, remoteRepository);
+    String highestVersionString = getHighestVersion(artifact);
     dependencyInformation.setLatestReleaseVersion(highestVersionString);
   }
 
-  /**
-   *
-   *
-   * @param artifact
-   * @param release : true for getting highest released version, false for highest snapshot version
-   * @param remoteRepository
-   * @return
-   */
-  private String getHighestVersion(Artifact artifact, boolean release, RemoteRepository remoteRepository) {
+  private String getHighestVersion(Artifact artifact) {
     try {
       VersionRangeRequest request = new VersionRangeRequest();
       request.setArtifact(new DefaultArtifact(artifact.getGroupId(), artifact.getArtifactId(), artifact.getExtension(), "[,]"));
-      request.setRepositories(Collections.singletonList(remoteRepository));
+      request.setRepositories(Collections.singletonList(exposePublicAsRemoteRepository()));
 
       VersionRangeResult versionRangeResult = nexusAether.getRepositorySystem().resolveVersionRange(nexusAether.getDefaultRepositorySystemSession(), request);
       LOGGER.debug("Version range result: {} with possible exceptions: {} for {}", versionRangeResult.getVersions(), versionRangeResult.getExceptions(), artifact);
