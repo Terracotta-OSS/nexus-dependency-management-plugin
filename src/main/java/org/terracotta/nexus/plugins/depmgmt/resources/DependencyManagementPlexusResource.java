@@ -20,6 +20,7 @@ import org.sonatype.aether.util.DefaultRepositorySystemSession;
 import org.sonatype.aether.util.artifact.DefaultArtifact;
 import org.sonatype.aether.util.graph.selector.ScopeDependencySelector;
 import org.sonatype.aether.version.Version;
+import org.sonatype.nexus.configuration.application.GlobalRestApiSettings;
 import org.sonatype.nexus.plugins.mavenbridge.NexusAether;
 import org.sonatype.nexus.plugins.mavenbridge.NexusMavenBridge;
 import org.sonatype.nexus.plugins.mavenbridge.internal.FileItemModelSource;
@@ -64,7 +65,7 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
   private NexusAether nexusAether;
 
   @Requirement
-  private RepositoryURLBuilder repositoryURLBuilder;
+  private GlobalRestApiSettings globalRestApiSettings;
 
   @Override
   protected Object retrieveView(ResourceStoreRequest request, RepositoryItemUid itemUid, StorageItem item, Request req) throws IOException {
@@ -124,17 +125,18 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
   }
 
   private RemoteRepository exposePublicAsRemoteRepository() {
-    String repositoryContentUrl = null;
-    try {
-      repositoryContentUrl = repositoryURLBuilder.getRepositoryContentUrl("public");
-    } catch (NoSuchRepositoryException e) {
-      throw new IllegalStateException("This Nexus instance does not have a \"public\" repository");
+    String baseUrl = globalRestApiSettings.getBaseUrl();
+    if (baseUrl == null) {
+      baseUrl = Request.getCurrent().getRootRef().toString();
     }
-    if (repositoryContentUrl == null) {
-      throw new IllegalStateException("Unable to get URL for public repository");
+
+    StringBuilder repositoryContentUrlBuilder = new StringBuilder(baseUrl);
+    if (!baseUrl.endsWith("/")) {
+      repositoryContentUrlBuilder.append("/");
     }
-    LOGGER.info("Repository URL resolved to {}", repositoryContentUrl);
-    return new RemoteRepository("public", "default", repositoryContentUrl);
+    repositoryContentUrlBuilder.append("content/groups/public");
+    LOGGER.debug("Repository URL resolved to {}", repositoryContentUrlBuilder);
+    return new RemoteRepository("public", "default", repositoryContentUrlBuilder.toString());
   }
 
   private DependencyNode resolveDirectDependencies(Dependency dependency) {
