@@ -68,6 +68,7 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
 
   @Override
   protected Object retrieveView(ResourceStoreRequest request, RepositoryItemUid itemUid, StorageItem item, Request req) throws IOException {
+    DependencyInformation requestDependency = null;
     try {
       LOGGER.info("Starting dependency resolution");
       MavenRepository itemRepository = itemUid.getRepository().adaptToFacet(MavenRepository.class);
@@ -75,6 +76,7 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
       StorageFileItem pom = itemRepository.getArtifactStoreHelper().retrieveArtifactPom(new ArtifactStoreRequest(itemRepository, gav, true));
 
       Dependency dependency = createDependencyFromGav(gav);
+      requestDependency = new DependencyInformation(dependency.getArtifact());
 
       DependencyNode dependencyNode = resolveDirectDependencies(dependency);
       DependencyInformation rootDep = buildDependencies(dependencyNode, gav.isSnapshot());
@@ -111,13 +113,19 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
     } catch (Exception e) {
       LOGGER.error("Got exception in depmgmt plugin", e);
       Throwable rootCause = ExceptionUtils.getRootCause(e);
-      return new ArtifactInformation(rootCause.getMessage() != null ? rootCause.getMessage() : rootCause.getClass().toString());
+      ArtifactInformation artifactInformation = new ArtifactInformation(rootCause.getMessage() != null ? rootCause.getMessage() : rootCause
+          .getClass()
+          .toString());
+      if (requestDependency != null) {
+        artifactInformation.setArtifact(requestDependency);
+      }
+      return artifactInformation;
     } finally {
       LOGGER.info("Done extracting POM information");
     }
   }
 
-  private org.sonatype.aether.graph.Dependency createDependencyFromGav(Gav gav) {
+  private Dependency createDependencyFromGav(Gav gav) {
     return new Dependency(
         new DefaultArtifact( gav.getGroupId(), gav.getArtifactId(), gav.getExtension(), gav.getBaseVersion()),
         "compile");

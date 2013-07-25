@@ -153,9 +153,10 @@ Ext.extend(Sonatype.repoServer.DependencyManagementPanel, Ext.form.FormPanel, {
 });
 
 function answerMatchRequest(data, resp) {
-    return (data.artifactId == resp.artifact.artifactId
-        && data.groupId == resp.artifact.groupId
-        && data.version == resp.artifact.version);
+    return (!resp.artifact ||
+            (data.artifactId === resp.artifact.artifactId
+                && data.groupId === resp.artifact.groupId
+                && data.version === resp.artifact.version));
 }
 
 function getParentPomInfo(parentId, parentHighestReleaseVersion, parentHighestSnapshotVersion) {
