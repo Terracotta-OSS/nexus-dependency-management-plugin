@@ -15,6 +15,7 @@ public class DependencyInformation {
   private DependencyInformation[] dependencies;
   private String latestReleaseVersion;
   private String latestSnapshotVersion;
+  private String scope;
 
   public DependencyInformation() {
   }
@@ -91,5 +92,13 @@ public class DependencyInformation {
 
   public void setLatestSnapshotVersion(String latestSnapshotVersion) {
     this.latestSnapshotVersion = latestSnapshotVersion;
+  }
+
+  public void setScope(String scope) {
+    this.scope = scope;
+  }
+
+  public String getScope() {
+    return scope;
   }
 }

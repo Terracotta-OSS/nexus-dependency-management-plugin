@@ -177,6 +177,7 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
     for (DependencyNode child : children) {
       Artifact artifact = child.getDependency().getArtifact();
       DependencyInformation childDep = new DependencyInformation(artifact);
+      childDep.setScope(child.getDependency().getScope());
       buildDependencies(childDep, child.getChildren(), addVersionInfo);
       // TODO : remove TC specific conditions
       if (addVersionInfo && parent.isTerracottaMaintained()) {

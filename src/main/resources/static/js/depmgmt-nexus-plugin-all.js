@@ -120,9 +120,9 @@ Ext.extend(Sonatype.repoServer.DependencyManagementPanel, Ext.form.FormPanel, {
                                     buildUrl.show();
                                 }
 
-                                that.find('name', 'treePanel')[0].getRootNode().removeAll(true);
+                                var rootNode = that.find('name', 'treePanel')[0].getRootNode();
+                                rootNode.removeAll(true);
                                 if (resp.artifact != null) {
-                                    var rootNode = that.find('name', 'treePanel')[0].getRootNode();
                                     fillRootTreeNode(rootNode, resp.artifact);
                                     appendChildren(rootNode, resp.artifact.dependencies);
                                 }
@@ -208,7 +208,7 @@ function fillRootTreeNode(treeNode, artifact) {
 
 function fillTreeNode(treeNode, artifact) {
     var expand = false;
-    var text = artifact.groupId + ':' + artifact.artifactId + ':' + artifact.version;
+    var text = artifact.groupId + ':' + artifact.artifactId + ':' + artifact.version + '&nbsp;(' + artifact.scope + ')';
 
     if (artifact.snapshot) {
         text = '<span class="snapshot">' + text + '</span>';
