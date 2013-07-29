@@ -69,4 +69,24 @@
     </repository>
   </repositories>
 
+  <scm>
+    <url>https://github.com/Terracotta-OSS/nexus-dependency-management-plugin</url>
+    <tag>HEAD</tag>
+    <connection>scm:git:ssh://git@github.com/Terracotta-OSS/nexus-dependency-management-plugin.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com/Terracotta-OSS/nexus-dependency-management-plugin.git</developerConnection>
+  </scm>
+
+  <distributionManagement>
+    <repository>
+      <id>terracotta-os-releases</id>
+      <name>Terracotta OS Releases Repository</name>
+      <url>http://nexus.terracotta.lan:8080/content/repositories/terracotta-os-releases</url>
+    </repository>
+    <snapshotRepository>
+      <id>terracotta-os-snapshots</id>
+      <uniqueVersion>false</uniqueVersion>
+      <name>Terracotta OS Snapshots Repository</name>
+      <url>http://nexus.terracotta.lan:8080/content/repositories/terracotta-os-snapshots</url>
+    </snapshotRepository>
+  </distributionManagement>
 </project>
