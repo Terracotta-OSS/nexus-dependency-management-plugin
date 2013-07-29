@@ -14,10 +14,14 @@
 
 .latest-snapshot {
     background-color: #5555aa;color: #ffffff !important;font-style: italic;
+    margin-left : 4px;
+    margin-right : 4px;
 }
 
 .latest-release {
     background-color: #5555aa;color: #ffffff !important;font-style: italic;
+    margin-left : 4px;
+    margin-right : 4px;
 }
 
 .new-release {
