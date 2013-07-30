@@ -11,7 +11,7 @@
 
   <groupId>org.terracotta.nexus.plugins</groupId>
   <artifactId>nexus-dependency-management-plugin</artifactId>
-  <version>1.1.0</version>
+  <version>1.1.1-SNAPSHOT</version>
   <name>Nexus Dependency Management Plugin</name>
   <packaging>nexus-plugin</packaging>
   <description>Nexus plugin that gives information about dependency management.</description>
@@ -89,7 +89,7 @@
 
   <scm>
     <url>https://github.com/Terracotta-OSS/nexus-dependency-management-plugin</url>
-    <tag>release-1.1.0</tag>
+    <tag>HEAD</tag>
     <connection>scm:git:ssh://git@github.com/Terracotta-OSS/nexus-dependency-management-plugin.git</connection>
     <developerConnection>scm:git:ssh://git@github.com/Terracotta-OSS/nexus-dependency-management-plugin.git</developerConnection>
   </scm>
