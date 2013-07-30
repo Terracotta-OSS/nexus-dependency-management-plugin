@@ -9,6 +9,8 @@ Simply clone this repo and run mvn clean install
 ## How to install :
 Unzip the archive in target named nexus-dependency-management-plugin-1.1.0-SNAPSHOT-bundle.zip NEXUSHOME/nexus/WEB-INF/plugin-repository and restart nexus.
 
+Or simply download the [latest release](https://github.com/Terracotta-OSS/nexus-dependency-management-plugin/releases)
+
 ## How to use :
 Simply search for an artifact and select the "Dependency Management" tab :
 ![Screenshot](https://raw.github.com/Terracotta-OSS/nexus-dependency-management-plugin/gh-pages/screenshots/dependencies.png "Dependencies")
