@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 
   <modelVersion>4.0.0</modelVersion>
 
@@ -12,7 +11,7 @@
 
   <groupId>org.terracotta.nexus.plugins</groupId>
   <artifactId>nexus-dependency-management-plugin</artifactId>
-  <version>1.1.0-SNAPSHOT</version>
+  <version>1.1.0</version>
   <name>Nexus Dependency Management Plugin</name>
   <packaging>nexus-plugin</packaging>
   <description>Nexus plugin that gives information about dependency management.</description>
@@ -90,7 +89,7 @@
 
   <scm>
     <url>https://github.com/Terracotta-OSS/nexus-dependency-management-plugin</url>
-    <tag>HEAD</tag>
+    <tag>release-1.1.0</tag>
     <connection>scm:git:ssh://git@github.com/Terracotta-OSS/nexus-dependency-management-plugin.git</connection>
     <developerConnection>scm:git:ssh://git@github.com/Terracotta-OSS/nexus-dependency-management-plugin.git</developerConnection>
   </scm>
