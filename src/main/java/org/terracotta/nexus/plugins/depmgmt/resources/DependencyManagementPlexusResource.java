@@ -147,20 +147,14 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
     return new RemoteRepository("public", "default", repositoryContentUrlBuilder.toString());
   }
 
-  private DependencyNode resolveDirectDependencies(Dependency dependency) {
-    DependencyNode dependencyNode = null;
-
+  private DependencyNode resolveDirectDependencies(Dependency dependency) throws DependencyCollectionException {
     CollectRequest collectRequest = new CollectRequest();
     collectRequest.setRoot(dependency);
     collectRequest.addRepository(exposePublicAsRemoteRepository());
-    try {
-      CollectResult collectResult = nexusAether.getRepositorySystem()
-          .collectDependencies(getRepositorySystemSession(), collectRequest);
-      dependencyNode = collectResult.getRoot();
-    } catch (DependencyCollectionException e) {
-      LOGGER.error("Exception collecting deps", e);
-    }
-    return dependencyNode;
+
+    CollectResult collectResult = nexusAether.getRepositorySystem()
+        .collectDependencies(getRepositorySystemSession(), collectRequest);
+    return collectResult.getRoot();
   }
 
   private DependencyInformation buildDependencies(DependencyNode parentNode, boolean snapshot) {
