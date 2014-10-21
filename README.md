@@ -4,10 +4,10 @@ Nexus Dependency Management Plugin
 The Nexus Dependency Management Plugin allows developers, QAs, devops, etc. to get extended information about the artifacts hosted in their Nexus instance.
 
 ## How to build :
-Simply clone this repo and run mvn clean install
+Simply clone this repo and run `mvn clean install`
 
 ## How to install :
-Unzip the archive in target named nexus-dependency-management-plugin-1.1.0-SNAPSHOT-bundle.zip NEXUSHOME/nexus/WEB-INF/plugin-repository and restart nexus.
+Unzip the archive in target named `nexus-dependency-management-plugin-<version>-bundle.zip` to `sonatype-work/nexus/plugin-repository` and restart nexus.
 
 Or simply download the [latest release](https://github.com/Terracotta-OSS/nexus-dependency-management-plugin/releases)
 

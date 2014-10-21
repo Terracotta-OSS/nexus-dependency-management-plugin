@@ -2,10 +2,12 @@ package org.terracotta.nexus.plugins.depmgmt.model;
 
 import org.sonatype.aether.artifact.Artifact;
 
+import java.io.Serializable;
+
 /**
  * @author Ludovic Orban
  */
-public class DependencyInformation {
+public class DependencyInformation implements Serializable{
 
   private String groupId;
   private String artifactId;

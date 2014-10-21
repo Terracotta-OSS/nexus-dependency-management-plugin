@@ -1,7 +1,5 @@
 package org.terracotta.nexus.plugins.depmgmt.resources;
 
-import org.codehaus.plexus.component.annotations.Component;
-import org.codehaus.plexus.component.annotations.Requirement;
 import org.restlet.data.Request;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,7 +31,6 @@ import org.sonatype.nexus.proxy.maven.MavenRepository;
 import org.sonatype.nexus.proxy.maven.gav.Gav;
 import org.sonatype.nexus.proxy.registry.RepositoryRegistry;
 import org.sonatype.nexus.rest.AbstractArtifactViewProvider;
-import org.sonatype.nexus.rest.ArtifactViewProvider;
 import org.terracotta.nexus.plugins.depmgmt.model.ArtifactInformation;
 import org.terracotta.nexus.plugins.depmgmt.model.DependencyInformation;
 import org.terracotta.nexus.plugins.depmgmt.utils.ExceptionUtils;
@@ -46,31 +43,41 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.Properties;
 
+import javax.inject.Inject;
+import javax.inject.Named;
+import javax.inject.Singleton;
+
 /**
  * @author Ludovic Orban
  */
-@Component(role = ArtifactViewProvider.class, hint = "depmgmt")
+@Named("depmgmt")
+@Singleton
 public class DependencyManagementPlexusResource extends AbstractArtifactViewProvider {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(DependencyManagementPlexusResource.class);
-
-  @Requirement
   private RepositoryRegistry repositoryRegistry;
 
-  @Requirement
   private NexusMavenBridge nexusMavenBridge;
 
-  @Requirement
   private NexusAether nexusAether;
 
-  @Requirement
   private GlobalRestApiSettings globalRestApiSettings;
+
+  @Inject
+  public DependencyManagementPlexusResource(RepositoryRegistry repositoryRegistry,
+                                            NexusMavenBridge nexusMavenBridge,
+                                            NexusAether nexusAether,
+                                            GlobalRestApiSettings globalRestApiSettings) {
+    this.repositoryRegistry = repositoryRegistry;
+    this.nexusMavenBridge = nexusMavenBridge;
+    this.nexusAether = nexusAether;
+    this.globalRestApiSettings = globalRestApiSettings;
+  }
 
   @Override
   protected Object retrieveView(ResourceStoreRequest request, RepositoryItemUid itemUid, StorageItem item, Request req) throws IOException {
     DependencyInformation requestDependency = null;
     try {
-      LOGGER.info("Starting dependency resolution");
+      getLogger().info("Starting dependency resolution");
       MavenRepository itemRepository = itemUid.getRepository().adaptToFacet(MavenRepository.class);
       Gav gav = itemRepository.getGavCalculator().pathToGav(itemUid.getPath());
       StorageFileItem pom = itemRepository.getArtifactStoreHelper().retrieveArtifactPom(new ArtifactStoreRequest(itemRepository, gav, true));
@@ -81,7 +88,7 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
       DependencyNode dependencyNode = resolveDirectDependencies(dependency);
       DependencyInformation rootDep = buildDependencies(dependencyNode, gav.isSnapshot());
 
-      LOGGER.info("Done building dependencies");
+      getLogger().info("Done building dependencies");
       /*
       WTF? I get:
       java.lang.LinkageError: loader constraint violation: loader (instance of org/codehaus/plexus/classworlds/realm/ClassRealm) previously initiated loading for a different type with name "org/apache/maven/model/Model"
@@ -111,7 +118,7 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
 
       return artifactInformation;
     } catch (Exception e) {
-      LOGGER.error("Got exception in depmgmt plugin", e);
+      getLogger().error("Got exception in depmgmt plugin", e);
       Throwable rootCause = ExceptionUtils.getRootCause(e);
       ArtifactInformation artifactInformation = new ArtifactInformation(rootCause.getMessage() != null ? rootCause.getMessage() : rootCause
           .getClass()
@@ -121,7 +128,7 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
       }
       return artifactInformation;
     } finally {
-      LOGGER.info("Done extracting POM information");
+      getLogger().info("Done extracting POM information");
     }
   }
 
@@ -143,7 +150,7 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
       repositoryContentUrlBuilder.append("/");
     }
     repositoryContentUrlBuilder.append("content/groups/public");
-    LOGGER.debug("Repository URL resolved to {}", repositoryContentUrlBuilder);
+    getLogger().debug("Repository URL resolved to {}", repositoryContentUrlBuilder);
     return new RemoteRepository("public", "default", repositoryContentUrlBuilder.toString());
   }
 
@@ -184,7 +191,7 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
   }
 
   private void addLatestVersionInfo(DependencyInformation dependencyInformation, Artifact artifact, boolean releaseOnly) {
-    LOGGER.debug("Version range request for {}", artifact);
+    getLogger().debug("Version range request for {}", artifact);
     // TODO : remove TC specific conditions
     if (!dependencyInformation.isTerracottaMaintained()) {
       return;
@@ -206,13 +213,13 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
       request.setRepositories(Collections.singletonList(exposePublicAsRemoteRepository()));
 
       VersionRangeResult versionRangeResult = nexusAether.getRepositorySystem().resolveVersionRange(nexusAether.getDefaultRepositorySystemSession(), request);
-      LOGGER.debug("Version range result: {} with possible exceptions: {} for {}", versionRangeResult.getVersions(), versionRangeResult.getExceptions(), artifact);
+      getLogger().debug("Version range result: {} with possible exceptions: {} for {}", versionRangeResult.getVersions(), versionRangeResult.getExceptions(), artifact);
       ListIterator<Version> versionListIterator = versionRangeResult.getVersions().listIterator(versionRangeResult.getVersions().size());
       while (versionListIterator.hasPrevious()) {
         Version highestVersion = versionListIterator.previous();
         if ((!release && highestVersion.toString().endsWith("SNAPSHOT")) || (release && !highestVersion.toString().endsWith("SNAPSHOT"))) {
           if (!artifact.getBaseVersion().equals(highestVersion.toString())) {
-            LOGGER.debug("Setting latest version to {} for {}", highestVersion, artifact);
+            getLogger().debug("Setting latest version to {} for {}", highestVersion, artifact);
             return highestVersion.toString();
           } else {
             return null;
@@ -220,7 +227,7 @@ public class DependencyManagementPlexusResource extends AbstractArtifactViewProv
         }
       }
     } catch (VersionRangeResolutionException e) {
-      LOGGER.error("Unable to resolve version range", e);
+      getLogger().error("Unable to resolve version range", e);
     }
     return null;
   }

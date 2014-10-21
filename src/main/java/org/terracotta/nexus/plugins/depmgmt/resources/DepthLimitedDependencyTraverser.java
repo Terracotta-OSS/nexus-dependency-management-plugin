@@ -23,7 +23,6 @@ public class DepthLimitedDependencyTraverser implements DependencyTraverser {
   }
 
   @Override
-
   public boolean traverseDependency(Dependency dependency) {
     return level < depth;
   }

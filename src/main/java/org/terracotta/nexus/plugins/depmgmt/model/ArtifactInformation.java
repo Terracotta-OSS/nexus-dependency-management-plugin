@@ -1,9 +1,20 @@
 package org.terracotta.nexus.plugins.depmgmt.model;
 
+import com.thoughtworks.xstream.annotations.XStreamAlias;
+
+import java.io.Serializable;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlRootElement;
+
 /**
  * @author Ludovic Orban
  */
-public class ArtifactInformation {
+@XStreamAlias(value = "artifactInformation")
+@XmlRootElement(name = "artifactInformation")
+@XmlAccessorType(XmlAccessType.FIELD)
+public class ArtifactInformation implements Serializable {
 
   private String error;
 
