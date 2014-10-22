@@ -202,9 +202,9 @@ define('Sonatype/repoServer/DependencyManagementPanel', function () {
         treeNode.setText(text);
 
         if (artifact.terracottaMaintained) {
-            treeNode.setIcon("icons/depmgmt-nexus-plugin/terracotta-jar.png");
+            treeNode.setIcon("static/icons/terracotta-jar.png");
         } else {
-            treeNode.setIcon("icons/depmgmt-nexus-plugin/jar-jar.png");
+            treeNode.setIcon("static/icons/jar-jar.png");
         }
     }
 
@@ -229,10 +229,10 @@ define('Sonatype/repoServer/DependencyManagementPanel', function () {
 
 
         if (artifact.terracottaMaintained) {
-            treeNode.setIcon("icons/depmgmt-nexus-plugin/terracotta-jar.png");
+            treeNode.setIcon("static/icons/terracotta-jar.png");
             expand = true;
         } else {
-            treeNode.setIcon("icons/depmgmt-nexus-plugin/jar-jar.png");
+            treeNode.setIcon("static/icons/jar-jar.png");
         }
         return expand;
     }
